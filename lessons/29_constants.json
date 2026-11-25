@@ -1,0 +1,14 @@
+{
+  "title": "Constants: const and #define",
+  "instructions": [
+    "A constant is a value that must never change. Two ways to make one:",
+    "- const int MAX = 100; makes a variable you promise not to change. If you try, the compiler stops you.",
+    "- #define PI 3.14 (at the top, no semicolon) makes a name that stands for a fixed value everywhere.",
+    "Constants make code safer and clearer: PI reads better than 3.14 scattered around, and const stops accidental changes.",
+    "By tradition, constant names are written in CAPITALS."
+  ],
+  "task": "Add a const int named MAX set to 100, so the output ends with:  MAX = 100",
+  "starter_code": "#include <stdio.h>\n\n#define PI 3.14\n\nint main() {\n    // make a const int MAX equal to 100\n\n    printf(\"PI = %.2f\\n\", PI);\n    printf(\"MAX = %d\\n\", MAX);\n    return 0;\n}\n",
+  "hint": "Declare it with const:\n\n    const int MAX = 100;",
+  "expected_output": "PI = 3.14\nMAX = 100"
+}

@@ -1,0 +1,13 @@
+{
+  "title": "while and do-while",
+  "instructions": [
+    "A while loop repeats as long as a condition stays true. It checks the condition FIRST, before each run.",
+    "  while (count <= 3) { ... }",
+    "Important: something inside the loop must eventually make the condition false, or it runs forever. Usually you change a counter like count++.",
+    "A do-while is the same idea but checks the condition LAST, so the body always runs at least once."
+  ],
+  "task": "Add the line that increases count so the loop ends and prints 1, 2, 3.",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int count = 1;\n    while (count <= 3) {\n        printf(\"%d\\n\", count);\n        // make count grow so the loop can end\n    }\n    return 0;\n}\n",
+  "hint": "Add 1 to count each time:\n\n        count++;\n\nWithout this the loop never ends.",
+  "expected_output": "1\n2\n3"
+}

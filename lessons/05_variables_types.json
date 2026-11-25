@@ -1,0 +1,16 @@
+{
+  "title": "Variables and Data Types",
+  "instructions": [
+    "A variable is a named box that holds a value. Every box has a type that decides what it can hold.",
+    "The four core types:",
+    "- int — whole numbers, like 33. Print with %d.",
+    "- float and double — numbers with a decimal, like 5.9. Print with %f.",
+    "- char — ONE character in single quotes, like 'A'. Print with %c.",
+    "Secret truth: a char is really just a number underneath (its ASCII code). 'A' is 65. That's why you can print the same char two ways.",
+    "The %d, %f, %c are 'format specifiers' — they tell printf how to show the value."
+  ],
+  "task": "Add a line that prints the char grade as a NUMBER, so the output ends with:  grade as a number = 65",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int  age = 33;\n    char grade = 'A';\n\n    printf(\"age = %d\\n\", age);\n    printf(\"grade = %c\\n\", grade);\n    // print grade as a number below\n\n    return 0;\n}\n",
+  "hint": "Use %d on the same char variable:\n\n    printf(\"grade as a number = %d\\n\", grade);",
+  "expected_output": "age = 33\ngrade = A\ngrade as a number = 65"
+}

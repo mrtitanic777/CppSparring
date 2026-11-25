@@ -1,0 +1,13 @@
+{
+  "title": "Recursion",
+  "instructions": [
+    "Recursion is a function that calls ITSELF. It sounds strange, but it's great for problems that break into smaller copies of themselves.",
+    "A classic example is factorial: 4! = 4 * 3 * 2 * 1 = 24.",
+    "Every recursion needs a base case — a simple situation that stops it. Without one, it calls forever and crashes.",
+    "Here the base case is: when n is 1 or less, just return 1. Otherwise, return n * factorial(n - 1)."
+  ],
+  "task": "Fill in the recursive call so factorial(4) prints 24.",
+  "starter_code": "#include <stdio.h>\n\nint factorial(int n) {\n    if (n <= 1) {\n        return 1;\n    }\n    return n * /* call factorial on n - 1 */ ;\n}\n\nint main() {\n    printf(\"factorial(4) = %d\\n\", factorial(4));\n    return 0;\n}\n",
+  "hint": "Call the function on the smaller number:\n\n    return n * factorial(n - 1);",
+  "expected_output": "factorial(4) = 24"
+}

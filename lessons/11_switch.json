@@ -1,0 +1,13 @@
+{
+  "title": "switch",
+  "instructions": [
+    "When you're checking one variable against many fixed values, a switch is cleaner than lots of else ifs.",
+    "switch (day) jumps to the case that matches.",
+    "Each case ends with break, which means 'stop here and leave the switch.' Forget break and it keeps running into the next case!",
+    "default runs if no case matched — like a final else."
+  ],
+  "task": "Add the break for case 3 so the program prints only:  Wednesday",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int day = 3;\n\n    switch (day) {\n        case 2:\n            printf(\"Tuesday\\n\");\n            break;\n        case 3:\n            printf(\"Wednesday\\n\");\n            // add break here\n        default:\n            printf(\"Other day\\n\");\n    }\n    return 0;\n}\n",
+  "hint": "Add break; after the Wednesday print so it doesn't fall into default:\n\n            break;",
+  "expected_output": "Wednesday"
+}

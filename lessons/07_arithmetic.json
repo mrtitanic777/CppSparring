@@ -1,0 +1,14 @@
+{
+  "title": "Arithmetic Operators",
+  "instructions": [
+    "C does math with these symbols: + add, - subtract, * multiply, / divide, and % remainder.",
+    "Watch out: dividing two ints CHOPS the answer. 7 / 2 gives 3, not 3.5, because ints can't hold a decimal.",
+    "The % operator gives the remainder (what's left over). 7 % 2 is 1.",
+    "Want a real decimal answer? Use doubles instead of ints.",
+    "To print an actual % sign with printf, write %% (two of them)."
+  ],
+  "task": "Add the line that prints the remainder of a divided by b, so the output ends with:  a %% b = 1",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int a = 7;\n    int b = 2;\n\n    printf(\"a + b = %d\\n\", a + b);\n    printf(\"a / b = %d\\n\", a / b);\n    // print the remainder below\n\n    return 0;\n}\n",
+  "hint": "Use the % operator, and %% to print a literal percent sign:\n\n    printf(\"a %% b = %d\\n\", a % b);",
+  "expected_output": "a + b = 9\na / b = 3\na % b = 1"
+}

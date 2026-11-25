@@ -1,0 +1,13 @@
+{
+  "title": "Unions",
+  "instructions": [
+    "A union looks like a struct, but with a twist: all its members SHARE the same space. It can hold ONE of them at a time.",
+    "You'd use a union to save memory when a value could be one of several types, but never more than one at once.",
+    "Writing to one member overwrites the others, because they're literally the same spot in memory.",
+    "Here, we store an int, then store a float in the same union — the float replaces the int."
+  ],
+  "task": "Store 3.5 in the union's as_float member so the output ends with:  as float = 3.5",
+  "starter_code": "#include <stdio.h>\n\nunion Value {\n    int   as_int;\n    float as_float;\n};\n\nint main() {\n    union Value v;\n    v.as_int = 65;\n    printf(\"as int = %d\\n\", v.as_int);\n\n    // store 3.5 in v.as_float\n\n    printf(\"as float = %.1f\\n\", v.as_float);\n    return 0;\n}\n",
+  "hint": "Assign to the float member with a dot:\n\n    v.as_float = 3.5;",
+  "expected_output": "as int = 65\nas float = 3.5"
+}

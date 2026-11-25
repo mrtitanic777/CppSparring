@@ -1,0 +1,14 @@
+{
+  "title": "Growing Memory with realloc",
+  "instructions": [
+    "malloc gives you a fixed chunk of memory. But what if you need MORE later? That's what realloc is for.",
+    "realloc(arr, newSize) resizes an existing block, keeping what was already in it.",
+    "It lives in <stdlib.h>, next to malloc and free.",
+    "Here we start with room for 2 numbers, then grow to 4.",
+    "Always assign the result back: arr = realloc(arr, ...); Then free it when done."
+  ],
+  "task": "Fill in realloc to grow arr to hold 4 ints, so it prints 1 2 3 4 (each on a line).",
+  "starter_code": "#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    int *arr = malloc(2 * sizeof(int));\n    arr[0] = 1;\n    arr[1] = 2;\n\n    arr = /* grow arr to hold 4 ints */ ;\n    arr[2] = 3;\n    arr[3] = 4;\n\n    for (int i = 0; i < 4; i++) {\n        printf(\"%d\\n\", arr[i]);\n    }\n    free(arr);\n    return 0;\n}\n",
+  "hint": "Resize to 4 ints:\n\n    arr = realloc(arr, 4 * sizeof(int));",
+  "expected_output": "1\n2\n3\n4"
+}

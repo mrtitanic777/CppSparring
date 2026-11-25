@@ -1,0 +1,13 @@
+{
+  "title": "typedef and enum",
+  "instructions": [
+    "Two small tools that make code cleaner:",
+    "typedef gives a type a shorter nickname. After typedef, you can write Person instead of the longer struct name every time.",
+    "enum is a list of named options. Each name is secretly a number starting at 0. So in enum Color { RED, GREEN, BLUE }, RED is 0, GREEN is 1, BLUE is 2.",
+    "enums make code readable: you write GREEN instead of remembering '1'."
+  ],
+  "task": "Set favorite to GREEN so the program prints:  favorite number = 1",
+  "starter_code": "#include <stdio.h>\n\nenum Color { RED, GREEN, BLUE };\n\nint main() {\n    enum Color favorite = /* pick GREEN */ ;\n\n    printf(\"favorite number = %d\\n\", favorite);\n    return 0;\n}\n",
+  "hint": "GREEN is the second option, which is number 1:\n\n    enum Color favorite = GREEN;",
+  "expected_output": "favorite number = 1"
+}

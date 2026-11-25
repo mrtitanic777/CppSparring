@@ -1,0 +1,17 @@
+{
+  "title": "Your First C Program",
+  "instructions": [
+    "Welcome! Every journey into C starts the same way: making the computer say something back to you.",
+    "Look at the code. A few pieces do the work:",
+    "- #include <stdio.h> loads C's input/output toolbox. That's where printf lives — the tool for printing text.",
+    "- int main() { ... } is the starting line of every C program. When you run it, the computer finds main and runs whatever is inside its curly braces { }.",
+    "- printf(\"...\") prints whatever text is between the quotes.",
+    "- \\n means 'new line', like pressing Enter.",
+    "- Every statement ends with a semicolon ;  Forgetting it is the #1 beginner mistake.",
+    "- return 0; means 'all done, everything went fine.'"
+  ],
+  "task": "Make the program print exactly:  Hello, World!",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    // Your code goes here\n\n    return 0;\n}\n",
+  "hint": "Put this inside main:\n\n    printf(\"Hello, World!\\n\");\n\nDon't forget the semicolon.",
+  "expected_output": "Hello, World!"
+}

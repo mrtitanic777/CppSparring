@@ -1,0 +1,14 @@
+{
+  "title": "Function Pointers",
+  "instructions": [
+    "You already store numbers in variables. C can also store a FUNCTION in a variable, so you can swap behavior at runtime.",
+    "The declaration looks odd: int (*operation)(int, int); means 'operation holds a function that takes two ints and returns an int.'",
+    "Point it at a function by name (no parentheses): operation = add;",
+    "Then call it through the variable: operation(3, 4).",
+    "This is how programs plug in different behavior without lots of if statements."
+  ],
+  "task": "Point operation at the add function so it prints:  result = 7",
+  "starter_code": "#include <stdio.h>\n\nint add(int a, int b) { return a + b; }\n\nint main() {\n    int (*operation)(int, int);\n\n    // point operation at add\n\n    printf(\"result = %d\\n\", operation(3, 4));\n    return 0;\n}\n",
+  "hint": "Assign the function by name, no parentheses:\n\n    operation = add;",
+  "expected_output": "result = 7"
+}

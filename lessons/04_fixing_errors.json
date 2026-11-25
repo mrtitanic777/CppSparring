@@ -1,0 +1,15 @@
+{
+  "title": "Fixing Errors",
+  "instructions": [
+    "Here's a secret: nobody writes perfect code the first time. Not beginners, not experts. Good programmers just read errors calmly and fix them.",
+    "When your code won't compile, gcc prints the error in the Output pane. Scary at first, but it usually tells you the line number and roughly what's wrong.",
+    "The code below has TWO bugs on purpose. Run it first, read the errors, then fix them.",
+    "Two very common C mistakes:",
+    "- Capitalization matters. C is case-sensitive: main and Main are NOT the same. It must be lowercase main.",
+    "- Missing semicolon. Every statement ends with ;"
+  ],
+  "task": "Fix both bugs so the program compiles and prints:  Debugging is a skill.",
+  "starter_code": "#include <stdio.h>\n\nint Main() {\n    printf(\"Debugging is a skill.\\n\")\n    return 0;\n}\n",
+  "hint": "Two fixes:\n1) Change Main to main (lowercase m).\n2) Add a semicolon ; at the end of the printf line.",
+  "expected_output": "Debugging is a skill."
+}

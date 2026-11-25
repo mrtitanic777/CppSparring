@@ -1,0 +1,13 @@
+{
+  "title": "The Ternary Operator",
+  "instructions": [
+    "The ternary operator is a tiny if/else squeezed into one line.",
+    "It reads: condition ? value_if_true : value_if_false",
+    "So (age >= 18) ? \"adult\" : \"minor\" gives \"adult\" when age is 18 or more, otherwise \"minor\".",
+    "It's handy for picking between two values quickly. Don't overuse it — a normal if is clearer for anything complex."
+  ],
+  "task": "Fill in the ternary so age 20 prints:  You are an adult",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int age = 20;\n\n    char *result = /* if age >= 18 give \"adult\" else \"minor\" */ ;\n\n    printf(\"You are an %s\\n\", result);\n    return 0;\n}\n",
+  "hint": "Write the condition, then ? true-value : false-value:\n\n    char *result = (age >= 18) ? \"adult\" : \"minor\";",
+  "expected_output": "You are an adult"
+}

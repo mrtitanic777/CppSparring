@@ -1,0 +1,14 @@
+{
+  "title": "The for Loop",
+  "instructions": [
+    "A loop repeats code so you don't copy-paste it. The for loop is the most common.",
+    "It has three parts inside its parentheses, separated by semicolons:",
+    "  for (start ; keep going while this is true ; step)",
+    "Example: for (int i = 1; i <= 5; i++) starts i at 1, runs while i is 5 or less, and adds 1 to i each time.",
+    "So the body runs 5 times, with i being 1, 2, 3, 4, 5."
+  ],
+  "task": "Fill in the loop condition so it counts 1 through 5, printing each number.",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    for (int i = 1; /* keep going while i is 5 or less */ ; i++) {\n        printf(\"i = %d\\n\", i);\n    }\n    return 0;\n}\n",
+  "hint": "The middle part is the keep-going test:\n\n    for (int i = 1; i <= 5; i++) {",
+  "expected_output": "i = 1\ni = 2\ni = 3\ni = 4\ni = 5"
+}

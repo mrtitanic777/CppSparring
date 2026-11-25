@@ -1,0 +1,14 @@
+{
+  "title": "2D Arrays",
+  "instructions": [
+    "A 2D array is a grid — rows and columns. Think of a spreadsheet or a tic-tac-toe board.",
+    "int grid[2][3] makes 2 rows, each with 3 columns.",
+    "You reach a cell with two indexes: grid[row][column]. Both start at 0.",
+    "So grid[0][0] is the top-left, and grid[1][2] is the bottom-right of a 2x3 grid.",
+    "To visit every cell, use a loop inside a loop: the outer walks the rows, the inner walks the columns."
+  ],
+  "task": "Fill in the indexes to print the bottom-right value (6).",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int grid[2][3] = {\n        {1, 2, 3},\n        {4, 5, 6}\n    };\n\n    printf(\"bottom-right = %d\\n\", grid[ /*row*/ ][ /*col*/ ]);\n    return 0;\n}\n",
+  "hint": "Last row is index 1, last column is index 2:\n\n    grid[1][2]",
+  "expected_output": "bottom-right = 6"
+}

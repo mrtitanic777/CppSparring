@@ -1,0 +1,13 @@
+{
+  "title": "Pointer Arithmetic",
+  "instructions": [
+    "An array's name is really a pointer to its first box. That means pointers and arrays are deeply connected.",
+    "If ptr points to the first number, then ptr + 1 points to the NEXT number, ptr + 2 the one after, and so on.",
+    "The pointer already knows how big each item is, so it jumps the right amount for you.",
+    "To read the value at ptr + 1, follow it with a star: *(ptr + 1)."
+  ],
+  "task": "Fill in the blank so it prints the SECOND number (20).",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int nums[3] = {10, 20, 30};\n    int *ptr = nums;\n\n    printf(\"second = %d\\n\", /* follow ptr + 1 */ );\n    return 0;\n}\n",
+  "hint": "Move one step and follow it:\n\n    *(ptr + 1)",
+  "expected_output": "second = 20"
+}

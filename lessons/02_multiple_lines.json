@@ -1,0 +1,14 @@
+{
+  "title": "Printing Multiple Lines",
+  "instructions": [
+    "One printf prints one chunk of text. Want several lines? Two ways:",
+    "Way 1 — use several printf statements, one after another. They run top to bottom.",
+    "Way 2 — put more than one \\n inside a single printf. Each \\n starts a new line.",
+    "While learning, one printf per line is easiest to read. Let's do that.",
+    "Remember: quotes around the text, semicolon at the end of every line."
+  ],
+  "task": "Print these three lines, each on its own line:\n\nC is a language.\nIt is fast.\nI am learning it.",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    printf(\"C is a language.\\n\");\n    // add the other two lines below\n\n    return 0;\n}\n",
+  "hint": "Add two more printf lines like the first:\n\n    printf(\"It is fast.\\n\");\n    printf(\"I am learning it.\\n\");",
+  "expected_output": "C is a language.\nIt is fast.\nI am learning it."
+}

@@ -1,0 +1,16 @@
+{
+  "title": "Assignment Operators",
+  "instructions": [
+    "You already know = means 'copy the right value into the left box.'",
+    "C gives you shortcuts for changing a variable based on its current value:",
+    "- score += 5  means  score = score + 5",
+    "- score -= 3  means  score = score - 3",
+    "- score *= 2  means  score = score * 2",
+    "- score++  adds 1;  score--  subtracts 1",
+    "These are just shorter ways to write the same math."
+  ],
+  "task": "Add the line that doubles score with *=, so the output ends with:  after *= 2: 30",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int score = 10;\n\n    score += 5;\n    printf(\"after += 5: %d\\n\", score);\n    // double score with *= below\n\n    printf(\"after *= 2: %d\\n\", score);\n    return 0;\n}\n",
+  "hint": "Use the *= shortcut:\n\n    score *= 2;",
+  "expected_output": "after += 5: 15\nafter *= 2: 30"
+}

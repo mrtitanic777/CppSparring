@@ -1,0 +1,13 @@
+{
+  "title": "Structs",
+  "instructions": [
+    "A struct lets you group related pieces of data into one custom type. Think of a Person that has a name AND an age together.",
+    "You define the shape once with struct Person { ... };",
+    "Then you make one and fill it in. Use a dot to reach inside: p1.name, p1.age.",
+    "Structs keep related data bundled so you pass one thing around instead of many loose variables."
+  ],
+  "task": "Set the age field to 33 so the program prints:  Sam is 33 years old",
+  "starter_code": "#include <stdio.h>\n\nstruct Person {\n    char *name;\n    int   age;\n};\n\nint main() {\n    struct Person p1;\n    p1.name = \"Sam\";\n    // set p1's age to 33\n\n    printf(\"%s is %d years old\\n\", p1.name, p1.age);\n    return 0;\n}\n",
+  "hint": "Reach inside with a dot and assign:\n\n    p1.age = 33;",
+  "expected_output": "Sam is 33 years old"
+}

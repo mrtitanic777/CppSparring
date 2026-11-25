@@ -1,0 +1,15 @@
+{
+  "title": "Pointers",
+  "instructions": [
+    "Every variable lives at an address in the computer's memory, like a house number. A pointer is a variable that holds an address instead of a normal value.",
+    "Two new symbols:",
+    "- &value means 'the address OF value.'",
+    "- int *ptr declares a pointer to an int. The * marks it as a pointer.",
+    "- *ptr (in code) means 'go to that address and use what's there.' This is called following, or dereferencing.",
+    "The magic: if you change *ptr, you change the original variable, because the pointer leads right back to it."
+  ],
+  "task": "Fill in the blank so ptr holds the ADDRESS of value.",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int value = 42;\n    int *ptr = /* the address of value */ ;\n\n    printf(\"value = %d\\n\", *ptr);\n    return 0;\n}\n",
+  "hint": "Use & to get the address of value:\n\n    int *ptr = &value;",
+  "expected_output": "value = 42"
+}

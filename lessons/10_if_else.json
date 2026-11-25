@@ -1,0 +1,13 @@
+{
+  "title": "if / else",
+  "instructions": [
+    "An if statement lets your program make a decision. If a condition is true, it runs the code in its { } braces.",
+    "Add else if to check more conditions, and else as a catch-all when nothing above matched.",
+    "The computer checks them top to bottom and runs the FIRST one that is true, then skips the rest.",
+    "The condition uses the comparison operators you learned: >=, ==, <, and so on."
+  ],
+  "task": "Fill in the condition so a score of 75 prints:  Grade: C",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int score = 75;\n\n    if (score >= 90) {\n        printf(\"Grade: A\\n\");\n    } else if ( /* is score at least 70? */ ) {\n        printf(\"Grade: C\\n\");\n    } else {\n        printf(\"Grade: F\\n\");\n    }\n    return 0;\n}\n",
+  "hint": "Check if score is 70 or more:\n\n    } else if (score >= 70) {",
+  "expected_output": "Grade: C"
+}

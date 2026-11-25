@@ -1,0 +1,15 @@
+{
+  "title": "Linked Lists",
+  "instructions": [
+    "A linked list is a chain of nodes. Each node holds a value AND a pointer to the next node. This is structs and pointers working together — the heart of real C.",
+    "struct Node { int value; struct Node *next; };",
+    "You reach inside a pointer-to-struct with -> instead of a dot: current->value, current->next.",
+    "The last node points to NULL, which marks the end of the chain.",
+    "To visit every node, start at the first and keep hopping to current->next until you hit NULL.",
+    "This is exactly the pattern used by the List, Queue, and HashTable projects in that GitHub repo."
+  ],
+  "task": "Set the last node's next to NULL to end the list, so it prints 10, 20, 30.",
+  "starter_code": "#include <stdio.h>\n#include <stdlib.h>\n\nstruct Node {\n    int value;\n    struct Node *next;\n};\n\nint main() {\n    struct Node *a = malloc(sizeof(struct Node));\n    struct Node *b = malloc(sizeof(struct Node));\n    struct Node *c = malloc(sizeof(struct Node));\n\n    a->value = 10; a->next = b;\n    b->value = 20; b->next = c;\n    c->value = 30; // mark the end of the list here\n\n    struct Node *current = a;\n    while (current != NULL) {\n        printf(\"%d\\n\", current->value);\n        current = current->next;\n    }\n\n    free(a); free(b); free(c);\n    return 0;\n}\n",
+  "hint": "The last node points to nothing, which is NULL:\n\n    c->next = NULL;",
+  "expected_output": "10\n20\n30"
+}

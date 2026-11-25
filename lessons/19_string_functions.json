@@ -1,0 +1,16 @@
+{
+  "title": "String Functions",
+  "instructions": [
+    "C keeps string tools in a toolbox called <string.h>. Include it to use them.",
+    "Common ones:",
+    "- strlen(s) — how many letters are in s.",
+    "- strcat(a, b) — glue b onto the end of a.",
+    "- strcpy(dest, src) — copy src into dest.",
+    "- strcmp(a, b) — returns 0 when the two strings are exactly equal.",
+    "You must #include <string.h> at the top to use them."
+  ],
+  "task": "Add the strcat call that glues 'World' onto 'Hello ' so it prints:  Hello World",
+  "starter_code": "#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char greeting[20] = \"Hello \";\n\n    // glue \"World\" onto the end of greeting\n\n    printf(\"%s\\n\", greeting);\n    return 0;\n}\n",
+  "hint": "Use strcat(destination, text_to_add):\n\n    strcat(greeting, \"World\");",
+  "expected_output": "Hello World"
+}

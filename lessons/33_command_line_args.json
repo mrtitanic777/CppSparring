@@ -1,0 +1,14 @@
+{
+  "title": "Command-Line Arguments",
+  "instructions": [
+    "Programs can receive words typed after their name on the command line. main can take two parameters to catch them:",
+    "int main(int argc, char *argv[])",
+    "- argc is how many words there are (the program's own name counts as one).",
+    "- argv is the list of those words, as strings. argv[0] is the program name, argv[1] is the first real argument.",
+    "This practice window runs your program with no extra words, so you'll just see the program name. To see more, run it in a terminal like:  myprog hello world",
+    "Get it to compile and run here."
+  ],
+  "task": "Fill in the loop body to print each argument with %s. (It just needs to run here.)",
+  "starter_code": "#include <stdio.h>\n\nint main(int argc, char *argv[]) {\n    printf(\"you passed %d words\\n\", argc);\n    for (int i = 0; i < argc; i++) {\n        // print argv[i] with %s\n    }\n    return 0;\n}\n",
+  "hint": "Print the i-th word:\n\n        printf(\"word %d: %s\\n\", i, argv[i]);"
+}

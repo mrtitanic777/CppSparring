@@ -1,0 +1,14 @@
+{
+  "title": "Scope",
+  "instructions": [
+    "Scope is about WHERE a variable exists and can be used.",
+    "A variable made inside a function is local — it only exists inside that function. Outside, it's as if it never existed.",
+    "A variable made outside all functions is global — every function can see and use it.",
+    "Local variables keep functions tidy and independent. Reach for globals sparingly.",
+    "Here, global is shared, but a variable made inside a function would not be visible in main."
+  ],
+  "task": "Print the global variable from inside main so the output ends with:  global = 100",
+  "starter_code": "#include <stdio.h>\n\nint global = 100;\n\nint main() {\n    // print the global variable\n\n    return 0;\n}\n",
+  "hint": "global is visible everywhere, so just print it:\n\n    printf(\"global = %d\\n\", global);",
+  "expected_output": "global = 100"
+}

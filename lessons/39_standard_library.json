@@ -1,0 +1,15 @@
+{
+  "title": "The Standard Library",
+  "instructions": [
+    "C comes with ready-made toolboxes (libraries). You #include a toolbox, then use its tools instead of reinventing them.",
+    "A few handy ones:",
+    "- <ctype.h> for characters: toupper('a') gives 'A'; isdigit('7') asks 'is this a digit?'",
+    "- <stdlib.h> for utilities: atoi(\"42\") turns the text \"42\" into the number 42.",
+    "Knowing a library exists saves you from writing code that's already been written and tested for you.",
+    "The habit to build: before writing something fiddly, check if the standard library already does it."
+  ],
+  "task": "Add the atoi call that turns \"42\" into a number, so the output ends with:  number + 1 = 43",
+  "starter_code": "#include <stdio.h>\n#include <ctype.h>\n#include <stdlib.h>\n\nint main() {\n    printf(\"toupper('a') = %c\\n\", toupper('a'));\n\n    int number = /* turn the text \"42\" into a number */ ;\n    printf(\"number + 1 = %d\\n\", number + 1);\n    return 0;\n}\n",
+  "hint": "Use atoi to convert text to a number:\n\n    int number = atoi(\"42\");",
+  "expected_output": "toupper('a') = A\nnumber + 1 = 43"
+}

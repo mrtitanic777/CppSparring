@@ -1,0 +1,14 @@
+{
+  "title": "Memory: malloc and free",
+  "instructions": [
+    "Sometimes you don't know how much room you need until the program is running. malloc asks the computer for memory on the spot.",
+    "It lives in the <stdlib.h> toolbox.",
+    "malloc(3 * sizeof(int)) asks for enough room for 3 ints and hands back a pointer to it.",
+    "When you're done, you MUST give it back with free(pointer). Forgetting to free is called a memory leak.",
+    "You use the result just like a normal array: arr[0], arr[1], and so on."
+  ],
+  "task": "Add the free() call at the end so the memory is returned.",
+  "starter_code": "#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    int *arr = malloc(3 * sizeof(int));\n    arr[0] = 5;\n    arr[1] = 10;\n    arr[2] = 15;\n\n    for (int i = 0; i < 3; i++) {\n        printf(\"%d\\n\", arr[i]);\n    }\n\n    // give the memory back below\n\n    return 0;\n}\n",
+  "hint": "Return the memory you borrowed:\n\n    free(arr);",
+  "expected_output": "5\n10\n15"
+}

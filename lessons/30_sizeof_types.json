@@ -1,0 +1,15 @@
+{
+  "title": "sizeof and Number Types",
+  "instructions": [
+    "Numbers come in different sizes for different jobs. sizeof tells you how much space a type uses, in bytes.",
+    "sizeof(int) is usually 4, a double 8, a char 1. Print the result with %zu.",
+    "Bigger and special number types:",
+    "- unsigned int — no negatives allowed, so it can hold a bigger positive number. Print with %u.",
+    "- long long — holds HUGE whole numbers. Print with %lld.",
+    "Pick the smallest type that comfortably fits your numbers."
+  ],
+  "task": "Add the line that prints big with %lld, so the output ends with:  big = 10000000000",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    printf(\"int takes %zu bytes\\n\", sizeof(int));\n    printf(\"char takes %zu bytes\\n\", sizeof(char));\n\n    long long big = 10000000000LL;\n    // print big with %lld below\n\n    return 0;\n}\n",
+  "hint": "Use the %lld specifier for long long:\n\n    printf(\"big = %lld\\n\", big);",
+  "expected_output": "int takes 4 bytes\nchar takes 1 bytes\nbig = 10000000000"
+}

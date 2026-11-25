@@ -1,0 +1,14 @@
+{
+  "title": "Arrays",
+  "instructions": [
+    "An array is a row of boxes, all the same type, under one name.",
+    "int nums[5] makes room for 5 ints. You reach each one by its position number, called an index.",
+    "Big surprise for beginners: indexes start at 0, not 1. So the first box is nums[0], the second is nums[1], and so on.",
+    "You can read a box (nums[2]) or change it (nums[1] = 99).",
+    "A for loop is the usual way to walk through every box."
+  ],
+  "task": "Fill in the index so the program prints the THIRD element (30).",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int nums[5] = {10, 20, 30, 40, 50};\n\n    printf(\"third = %d\\n\", nums[ /* which index? */ ]);\n    return 0;\n}\n",
+  "hint": "The third box is index 2, because counting starts at 0:\n\n    nums[2]",
+  "expected_output": "third = 30"
+}

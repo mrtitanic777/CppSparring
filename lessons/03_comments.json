@@ -1,0 +1,15 @@
+{
+  "title": "Comments",
+  "instructions": [
+    "Comments are notes you leave in your code for humans. The computer ignores them completely — they never run.",
+    "Why bother? Because 'past you' forgets things, and 'future you' will thank you. Comments explain WHY code exists.",
+    "C gives you two styles:",
+    "- // a single-line comment — everything after the two slashes, to the end of the line, is ignored.",
+    "- /* a block comment */ — everything between /* and */ is ignored, even across several lines.",
+    "The computer skips comments and only runs the real code."
+  ],
+  "task": "Add a // comment above the printf, then make the program print:  Comments are just notes.",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    // Write your own comment, then print below it\n\n    return 0;\n}\n",
+  "hint": "Something like:\n\n    // This line greets the reader\n    printf(\"Comments are just notes.\\n\");\n\nThe comment can say anything.",
+  "expected_output": "Comments are just notes."
+}

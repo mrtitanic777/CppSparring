@@ -1,0 +1,14 @@
+{
+  "title": "Functions",
+  "instructions": [
+    "A function is a reusable mini-program with a name. You write it once and call it as many times as you want.",
+    "int add(int a, int b) means: a function named add that takes two ints (a and b) and hands back an int.",
+    "The values you pass in (a and b) are called parameters.",
+    "return sends an answer back to whoever called the function.",
+    "You call it by name: add(3, 4). The result can be caught in a variable or printed."
+  ],
+  "task": "Finish the add function so it returns the sum, making the program print:  3 + 4 = 7",
+  "starter_code": "#include <stdio.h>\n\nint add(int a, int b) {\n    // return the sum of a and b\n}\n\nint main() {\n    printf(\"3 + 4 = %d\\n\", add(3, 4));\n    return 0;\n}\n",
+  "hint": "Hand back a + b:\n\n    return a + b;",
+  "expected_output": "3 + 4 = 7"
+}

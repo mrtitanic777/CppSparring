@@ -1,0 +1,14 @@
+{
+  "title": "Strings",
+  "instructions": [
+    "A string is just a row of letters — an array of char, with a hidden 'stop' mark at the end that C adds for you.",
+    "char name[] = \"Sam\"; makes a string you can print with %s.",
+    "Because a string is really an array, you can reach one letter with an index: name[0] is 'S'.",
+    "You can even change a letter: name[0] = 'P' turns \"Sam\" into \"Pam\".",
+    "Single quotes 'S' = one character. Double quotes \"Sam\" = a whole string. Different things!"
+  ],
+  "task": "Change the first letter so the program prints:  Pam",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    char name[] = \"Sam\";\n\n    // change the first letter to 'P'\n\n    printf(\"%s\\n\", name);\n    return 0;\n}\n",
+  "hint": "Set index 0 to the character 'P' (single quotes):\n\n    name[0] = 'P';",
+  "expected_output": "Pam"
+}

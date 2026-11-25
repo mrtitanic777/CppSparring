@@ -1,0 +1,14 @@
+{
+  "title": "Casting Types",
+  "instructions": [
+    "Sometimes you need to change a value from one type to another. That's called casting.",
+    "Put the type you WANT in parentheses in front of the value: (int)someDouble.",
+    "Important: turning a decimal into an int CHOPS off everything after the dot. It does NOT round. (int)3.99 gives 3, not 4.",
+    "Casting makes a converted copy — the original variable is unchanged.",
+    "Read = right to left: 'displayScore GETS a copy of testScore, converted to an int.'"
+  ],
+  "task": "Fill in the cast so displayScore becomes 95 and the output shows:  displayScore = 95",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    double testScore = 95.7;\n    int    displayScore;\n\n    displayScore = /* cast testScore here */ ;\n\n    printf(\"displayScore = %d\\n\", displayScore);\n    return 0;\n}\n",
+  "hint": "Cast the double to an int:\n\n    displayScore = (int)testScore;",
+  "expected_output": "displayScore = 95"
+}

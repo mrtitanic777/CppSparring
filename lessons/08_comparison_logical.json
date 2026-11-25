@@ -1,0 +1,17 @@
+{
+  "title": "Comparison and Logical Operators",
+  "instructions": [
+    "Comparisons ask a yes/no question and give back 1 for true or 0 for false.",
+    "- ==  equal to (note: TWO equals signs; one = means 'copy into')",
+    "- !=  not equal to",
+    "- <  >  <=  >=  less/greater than",
+    "Logical operators combine yes/no values:",
+    "- &&  AND (true only if BOTH sides are true)",
+    "- ||  OR  (true if EITHER side is true)",
+    "- !   NOT (flips true to false)"
+  ],
+  "task": "Add the line that checks if a is less than b, so the output ends with:  a < b : 1",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int a = 5;\n    int b = 9;\n\n    printf(\"a == b : %d\\n\", a == b);\n    // check if a is less than b\n\n    return 0;\n}\n",
+  "hint": "Use the < operator:\n\n    printf(\"a < b : %d\\n\", a < b);",
+  "expected_output": "a == b : 0\na < b : 1"
+}

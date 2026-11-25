@@ -1,0 +1,15 @@
+{
+  "title": "Bitwise Operators",
+  "instructions": [
+    "Deep down, numbers are stored as bits: 1s and 0s. Bitwise operators work on those bits directly.",
+    "- &  AND, |  OR, ^  XOR, ~  NOT",
+    "- <<  shift left  (each shift left doubles the number)",
+    "- >>  shift right (each shift right halves it)",
+    "You won't use these every day, but they're vital for low-level work, flags, and squeezing out speed.",
+    "Example: 6 is 110 in bits and 3 is 011, so 6 & 3 (bits that are 1 in BOTH) is 010, which is 2."
+  ],
+  "task": "Add the line that prints a shifted left by 1, so the output ends with:  a << 1 = 12",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    int a = 6;\n    int b = 3;\n\n    printf(\"a & b = %d\\n\", a & b);\n    // print a shifted left by 1 below\n\n    return 0;\n}\n",
+  "hint": "Shift left with <<:\n\n    printf(\"a << 1 = %d\\n\", a << 1);",
+  "expected_output": "a & b = 2\na << 1 = 12"
+}

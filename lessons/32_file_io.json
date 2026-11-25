@@ -1,0 +1,15 @@
+{
+  "title": "Reading and Writing Files",
+  "instructions": [
+    "Programs can save data to files and read it back later, so information survives after the program ends.",
+    "The steps are always: open, use, close.",
+    "- fopen(\"notes.txt\", \"w\") opens a file for writing (\"w\"), creating it if needed.",
+    "- fprintf(file, \"...\") writes into it, just like printf but aimed at the file.",
+    "- fopen(..., \"r\") opens for reading, and fgets reads a line back.",
+    "- fclose(file) closes it. Always close what you open."
+  ],
+  "task": "Add the fprintf that writes \"Hello from C!\" into the file, so it prints:  the file said: Hello from C!",
+  "starter_code": "#include <stdio.h>\n\nint main() {\n    FILE *f = fopen(\"notes.txt\", \"w\");\n    // write \"Hello from C!\\n\" into the file below\n    fclose(f);\n\n    char line[100];\n    f = fopen(\"notes.txt\", \"r\");\n    fgets(line, 100, f);\n    fclose(f);\n\n    printf(\"the file said: %s\", line);\n    return 0;\n}\n",
+  "hint": "Write to the file with fprintf:\n\n    fprintf(f, \"Hello from C!\\n\");",
+  "expected_output": "the file said: Hello from C!"
+}

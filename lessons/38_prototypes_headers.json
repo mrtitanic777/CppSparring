@@ -1,0 +1,14 @@
+{
+  "title": "Splitting Code: Prototypes and Headers",
+  "instructions": [
+    "Real programs are split across many files. To let one file use a function defined elsewhere, you give C a PROTOTYPE first.",
+    "A prototype is just the function's name and shape, with a semicolon and no body: int square(int n);",
+    "It tells C 'this function exists, trust me, the body is somewhere.' Then you can define the body later, even below main.",
+    "In big projects, these prototypes are collected into a header file (ending in .h) that other files #include. The bodies live in matching .c files.",
+    "Here we do it all in one file so it runs in this window: a prototype at the top, the body at the bottom."
+  ],
+  "task": "Finish the square function's body so it prints:  square(5) = 25",
+  "starter_code": "#include <stdio.h>\n\nint square(int n);   // prototype: 'this function exists'\n\nint main() {\n    printf(\"square(5) = %d\\n\", square(5));\n    return 0;\n}\n\nint square(int n) {\n    // return n times itself\n}\n",
+  "hint": "Multiply n by itself:\n\n    return n * n;",
+  "expected_output": "square(5) = 25"
+}
