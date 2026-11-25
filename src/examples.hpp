@@ -12,6 +12,7 @@ struct Example {
     const char* blurb;    // one line a ten-year-old understands
     wchar_t glyph;        // Segoe Fluent Icons
     const char* source;
+    const char* input = nullptr;   // answers to type when the program asks, one per line
 };
 
 struct Level {

@@ -159,10 +159,10 @@ std::string instrument(const std::string& source, const std::vector<AstNode>& no
     return out;
 }
 
-Replay record_replay(const std::string& source, const std::vector<AstNode>& nodes, const std::string& original_path) {
+Replay record_replay(const std::string& source, const std::vector<AstNode>& nodes, const std::string& original_path, const std::string& input) {
     Replay r;
     r.source = source;
-    const CompileResult run = compile_and_run_string(instrument(source, nodes), original_path);
+    const CompileResult run = compile_and_run_string(instrument(source, nodes), original_path, input);
     if (!run.compiled) {
         r.error = plain_error(run.compile_errors);
         return r;

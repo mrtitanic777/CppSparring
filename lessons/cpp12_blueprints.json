@@ -1,0 +1,15 @@
+{
+  "title": "Blueprints (struct)",
+  "language": "cpp",
+  "course": 11,
+  "number": 12,
+  "instructions": [
+    "A struct is a blueprint that bundles boxes together into one thing.",
+    "struct Pet { std::string name; int hunger; }; says every Pet has a name and a hunger number.",
+    "Reach a box inside with a dot: rex.name, rex.hunger."
+  ],
+  "task": "Make the program print:  Rex is 3 hungry",
+  "starter_code": "#include <iostream>\n#include <string>\n\nstruct Pet {\n    std::string name;\n    int hunger;\n};\n\nint main() {\n    Pet rex{\"Rex\", 3};\n    // print the name, then \" is \", then the hunger, then \" hungry\"\n\n    return 0;\n}\n",
+  "hint": "Use the dot to reach each box:\n\n    std::cout << rex.name << \" is \" << rex.hunger << \" hungry\\n\";",
+  "expected_output": "Rex is 3 hungry"
+}

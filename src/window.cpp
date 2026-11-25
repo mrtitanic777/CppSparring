@@ -225,10 +225,11 @@ struct App {
         HWND h = hwnd;
         const std::vector<AstNode> nodes = model.nodes;
         const std::string path = model.source_path;
-        std::thread([h, id, source, nodes, path] {
+        const std::string input = model.program_input;
+        std::thread([h, id, source, nodes, path, input] {
             auto r = std::make_unique<ReplayResult>();
             r->id = id;
-            r->replay = record_replay(source, nodes, path);
+            r->replay = record_replay(source, nodes, path, input);
             if (PostMessageW(h, kWmReplayDone, 0, reinterpret_cast<LPARAM>(r.get()))) r.release();
         }).detach();
         start_page_anim();
@@ -273,6 +274,7 @@ struct App {
 
     // ---- the lesson editor (a real edit box over the drawing)
     HWND editor = nullptr;
+    HWND input_edit = nullptr;   // the typed answers
     HFONT editor_font = nullptr;
     HBRUSH editor_brush = nullptr;
     COLORREF editor_fg = 0, editor_bg = 0;
@@ -284,17 +286,38 @@ struct App {
         if (!editor) return;
         SetWindowSubclass(editor, editor_proc, 1, reinterpret_cast<DWORD_PTR>(hwnd));
         SendMessageW(editor, EM_SETLIMITTEXT, 0, 0);
+        input_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_WANTRETURN, 0, 0, 10, 10, hwnd,
+                                     reinterpret_cast<HMENU>(static_cast<INT_PTR>(kEditorId + 1)), GetModuleHandleW(nullptr), nullptr);
         model.native_editor = true;
         style_editor();
+    }
+    std::string edit_text(HWND h) const {
+        const int n = GetWindowTextLengthW(h);
+        std::wstring w(static_cast<std::size_t>(n) + 1, L'\0');
+        GetWindowTextW(h, w.data(), n + 1);
+        w.resize(static_cast<std::size_t>(n));
+        std::string s = narrow(w);
+        s.erase(std::remove(s.begin(), s.end(), '\r'), s.end());
+        return s;
+    }
+    // The answers box shows the program's answers on Look and the lesson's on a lesson.
+    std::string* answers() {
+        if (model.page == Page::Look && !model.replay_open && model.program_reads_input) return &model.program_input;
+        if (model.page == Page::Lesson && model.lesson_reads_input) return &model.lesson_input;
+        return nullptr;
     }
     void style_editor() {
         if (!editor) return;
         if (editor_font) DeleteObject(editor_font);
         editor_font = CreateFontW(-MulDiv(14, static_cast<int>(dpi), 96), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
                                   CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FIXED_PITCH, L"Cascadia Mono");
-        SendMessageW(editor, WM_SETFONT, reinterpret_cast<WPARAM>(editor_font), TRUE);
         const int margin = MulDiv(10, static_cast<int>(dpi), 96);
-        SendMessageW(editor, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(margin, margin));
+        for (HWND h : {editor, input_edit}) {
+            if (!h) continue;
+            SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(editor_font), TRUE);
+            SendMessageW(h, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(margin, margin));
+        }
+        if (input_edit) InvalidateRect(input_edit, nullptr, TRUE);
         editor_bg = rgb(pal.dark ? 0x1F1F1F : 0xFAFAFA);
         editor_fg = rgb(pal.dark ? 0xE8E8E8 : 0x1B1B1B);
         if (editor_brush) DeleteObject(editor_brush);
@@ -303,12 +326,19 @@ struct App {
     }
     void place_editor() {
         if (!editor) return;
+        auto px = [&](float v) { return static_cast<int>(std::lround(v * static_cast<float>(dpi) / 96.0f)); };
+        if (const std::string* want = answers(); want && input_edit && layout.input_box.w > 0) {
+            if (edit_text(input_edit) != *want) SetWindowTextW(input_edit, crlf(*want).c_str());
+            const Rect& r = layout.input_box;
+            SetWindowPos(input_edit, nullptr, px(r.x + 2), px(r.y + 6), px(r.w - 4), px(r.h - 10), SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        } else if (input_edit) {
+            ShowWindow(input_edit, SW_HIDE);
+        }
         if (model.page != Page::Lesson || model.lesson < 0) {
             ShowWindow(editor, SW_HIDE);
             return;
         }
         const Rect& r = layout.editor;
-        auto px = [&](float v) { return static_cast<int>(std::lround(v * static_cast<float>(dpi) / 96.0f)); };
         SetWindowPos(editor, nullptr, px(r.x + 2), px(r.y + 8), px(r.w - 4), px(r.h - 14), SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
     }
     std::string editor_text() {
@@ -335,6 +365,9 @@ struct App {
         model.lesson_running = false;
         model.hint_shown = false;
         model.lesson_check = LessonCheck{};
+        const Lesson& opened = lessons()[static_cast<std::size_t>(index)];
+        model.lesson_reads_input = lesson_reads_input(opened);
+        model.lesson_input = !opened.input.empty() ? opened.input : model.lesson_reads_input ? "7\n" : "";
         model.page = Page::Lesson;
         set_editor_text(lessons()[static_cast<std::size_t>(index)].starter);
         relayout();
@@ -343,16 +376,18 @@ struct App {
     }
     void run_lesson() {
         if (model.page != Page::Lesson || model.lesson < 0 || model.lesson_running) return;
+        sync_answers();
         model.lesson_code = editor_text();
         model.lesson_running = true;
         const unsigned id = ++lesson_id;
         HWND h = hwnd;
         const Lesson lesson = lessons()[static_cast<std::size_t>(model.lesson)];
         const std::string code = model.lesson_code;
-        std::thread([h, id, lesson, code] {
+        const std::string input = model.lesson_input;
+        std::thread([h, id, lesson, code, input] {
             auto r = std::make_unique<LessonResult>();
             r->id = id;
-            r->check = check_lesson(lesson, code);
+            r->check = check_lesson(lesson, code, input);
             if (PostMessageW(h, kWmLessonDone, 0, reinterpret_cast<LPARAM>(r.get()))) r.release();
         }).detach();
         invalidate();
@@ -665,7 +700,13 @@ struct App {
         if (line - 1 < model.code_scroll || line > model.code_scroll + visible) model.code_scroll = std::max(0, line - 1 - visible / 3);
     }
 
+    // What is in the answers box now (Windows does not always say when a multi-line box changes).
+    void sync_answers() {
+        if (std::string* field = answers(); field && input_edit && (GetWindowLongPtrW(input_edit, GWL_STYLE) & WS_VISIBLE)) *field = edit_text(input_edit);
+    }
+
     void click(Control c, int i) {
+        sync_answers();
         const Page was_page = model.page;
         const int was_current = model.current;
         act(c, i);
@@ -736,8 +777,12 @@ struct App {
         case Control::LessonNext:
             if (!model.lesson_ran || !model.lesson_check.passed) break;
             if (model.quest.active && !model.quest.finished) advance_quest();
-            else if (model.lesson + 1 < static_cast<int>(lessons().size())) open_lesson(model.lesson + 1);
-            else model.page = Page::Lessons;
+            else {
+                const std::vector<int> order = lesson_order();
+                const auto at = std::find(order.begin(), order.end(), model.lesson);
+                if (at != order.end() && at + 1 != order.end()) open_lesson(*(at + 1));
+                else model.page = Page::Lessons;
+            }
             return;
         case Control::QuizAnswer:
             if (model.quiz_choice < 0 && i >= 0 && model.quiz >= 0) {
@@ -845,6 +890,10 @@ struct App {
         model.source_path = path;
         model.source_name = file_name(path);
         model.source_code = std::move(code);
+        model.program_reads_input = reads_input(model.source_code);
+        model.program_input.clear();
+        for (const Example& e : examples())
+            if (model.source_name == e.file && e.input) model.program_input = e.input;
         model.code_scroll = 0;
         model.highlight_line = 0;
         model.look_scroll = 0;
@@ -875,12 +924,13 @@ struct App {
         const bool need_original = !model.original_ready;
         const std::string path = model.source_path;
         const std::string changed = apply_mutation(model.source_code, model.toggles[index]);
-        std::thread([h, gen, index, need_original, path, changed] {
+        const std::string input = model.program_input;
+        std::thread([h, gen, index, need_original, path, changed, input] {
             auto r = std::make_unique<RunResult>();
             r->index = index;
             r->has_original = need_original;
-            if (need_original) r->original = compile_and_run(path);
-            r->changed = compile_and_run_string(changed, path);
+            if (need_original) r->original = compile_and_run(path, input);
+            r->changed = compile_and_run_string(changed, path, input);
             if (PostMessageW(h, kWmRunDone, gen, reinterpret_cast<LPARAM>(r.get()))) r.release();
         }).detach();
     }
@@ -1179,8 +1229,15 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
         run_lesson();
         return 0;
 
+    case WM_COMMAND:
+        if (input_edit && reinterpret_cast<HWND>(lp) == input_edit && HIWORD(wp) == EN_CHANGE) {
+            if (std::string* field = answers()) *field = edit_text(input_edit);
+            return 0;
+        }
+        break;
+
     case WM_CTLCOLOREDIT:
-        if (reinterpret_cast<HWND>(lp) == editor && editor_brush) {
+        if ((reinterpret_cast<HWND>(lp) == editor || reinterpret_cast<HWND>(lp) == input_edit) && editor_brush) {
             SetTextColor(reinterpret_cast<HDC>(wp), editor_fg);
             SetBkColor(reinterpret_cast<HDC>(wp), editor_bg);
             return reinterpret_cast<LRESULT>(editor_brush);
@@ -1315,6 +1372,9 @@ int render_png(const ShotOptions& o) {
             if (i < examples().size()) path = write_example(examples()[i]);
         }
         read_file(path, m.source_code);
+        m.program_reads_input = reads_input(m.source_code);
+        for (const Example& e : examples())
+            if (file_name(path) == e.file && e.input) m.program_input = e.input;
         m.source_path = path;
         m.source_name = file_name(path);
         std::string error;
@@ -1322,18 +1382,18 @@ int render_png(const ShotOptions& o) {
         fill_from_nodes(m, std::move(nodes), std::move(error));
         if (!m.look.empty()) m.highlight_line = m.look.front().line;
         if (guess >= 0 && !m.challenges.empty()) {
-            m.original = compile_and_run(path);
+            m.original = compile_and_run(path, m.program_input);
             m.original_ready = true;
             Challenge& c = m.challenges[0];
             c.guess = guess;
-            c.result = compile_and_run_string(apply_mutation(m.source_code, m.toggles[0]), path);
+            c.result = compile_and_run_string(apply_mutation(m.source_code, m.toggles[0]), path, m.program_input);
             c.ran = true;
             c.truth = m.original.compiled ? static_cast<int>(classify(m.original, c.result)) : -1;
             if (c.truth == guess) m.confetti = 0.35f;   // show the celebration mid-flight
         }
         if (o.replay_step >= 0) {
             const bool changed = guess >= 0 && !m.toggles.empty();
-            m.replay = record_replay(changed ? apply_mutation(m.source_code, m.toggles[0]) : m.source_code, m.nodes, path);
+            m.replay = record_replay(changed ? apply_mutation(m.source_code, m.toggles[0]) : m.source_code, m.nodes, path, m.program_input);
             m.replay_open = true;
             m.replay_from = changed ? Page::Break : Page::Look;
             m.replay_title = changed ? "Watching your change run" : "Watching it run";
@@ -1377,9 +1437,11 @@ int render_png(const ShotOptions& o) {
         const Lesson& ls = lessons()[static_cast<std::size_t>(o.lesson)];
         m.lesson = o.lesson;
         m.lesson_code = ls.starter;
+        m.lesson_reads_input = lesson_reads_input(ls);
+        m.lesson_input = !ls.input.empty() ? ls.input : m.lesson_reads_input ? "7\n" : "";
         m.hint_shown = o.hint;
         if (o.run_lesson) {
-            m.lesson_check = check_lesson(ls, m.lesson_code);
+            m.lesson_check = check_lesson(ls, m.lesson_code, m.lesson_input);
             m.lesson_ran = true;
         }
     }
@@ -1419,6 +1481,180 @@ int screenshot(const ShotOptions& o) {
     const int result = render_png(o);
     CoUninitialize();
     return result;
+}
+
+int self_test(const std::wstring& log_path) {
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    std::error_code ec;
+    const std::filesystem::path progress = std::filesystem::temp_directory_path(ec) / L"CppSparring" / L"selftest-progress.txt";
+    std::filesystem::create_directories(progress.parent_path(), ec);
+    std::filesystem::remove(progress, ec);
+    use_progress_file(progress.wstring());
+
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof wc;
+    wc.lpfnWndProc = wnd_proc;
+    wc.hInstance = GetModuleHandleW(nullptr);
+    wc.lpszClassName = kClassName;
+    RegisterClassExW(&wc);
+    auto app = std::make_unique<App>();
+    app->renderer.init();
+    // never shown: the test runs the real window's code without putting anything on the screen
+    HWND hwnd = CreateWindowExW(0, kClassName, L"CppSparring self-test", WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPCHILDREN, 0, 0, 1200, 800,
+                                nullptr, nullptr, wc.hInstance, app.get());
+    if (!hwnd) return 99;
+    App& a = *app;
+    Model& m = a.model;
+    m.progress = load_progress();
+    a.relayout();
+
+    std::ofstream log{std::filesystem::path(log_path)};
+    int passes = 0, fails = 0;
+    auto check = [&](const char* what, bool ok) {
+        log << (ok ? "PASS  " : "FAIL  ") << what << "\n";
+        log.flush();
+        ++(ok ? passes : fails);
+    };
+    auto pump = [&](const auto& done, int ms) {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+        MSG msg;
+        while (std::chrono::steady_clock::now() < end) {
+            while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+            if (done()) return true;
+            Sleep(10);
+        }
+        return static_cast<bool>(done());
+    };
+    auto click = [&](Control c, int i = -1) {
+        a.click(c, i);
+        pump([] { return false; }, 20);
+    };
+    auto guess_ready = [&] { return !m.importing && m.page == Page::Break && a.step() && a.step()->challenge >= 0; };
+    auto ran = [&] {
+        return !m.running && m.current >= 0 && m.current < static_cast<int>(m.challenges.size()) &&
+               m.challenges[static_cast<std::size_t>(m.current)].ran;
+    };
+    auto shown = [](HWND h) { return h && (GetWindowLongPtrW(h, GWL_STYLE) & WS_VISIBLE) != 0; };
+
+    // ---- a whole Daily Quest
+    click(Control::HeroQuest);
+    check("the big button starts a quest of 5 steps", m.quest.active && m.quest.steps.size() == 5 && !m.quest.boss);
+    check("quest step 1 is a quiz card", m.page == Page::Quiz && m.quiz >= 0);
+    click(Control::QuizAnswer, 0);
+    check("answering the quiz counts the step", m.quiz_choice == 0 && m.quest.steps[0].done);
+    click(Control::QuizNext);
+    check("step 2 reads a program and picks a challenge", pump(guess_ready, 90000));
+    click(Control::Guess, 2);
+    check("a guess builds and runs both versions", pump(ran, 90000) && m.original.compiled);
+    check("the guess counts in the quest", m.quest.steps[1].done);
+    click(Control::NextAfterResult);
+    check("step 3 opens a lesson", m.page == Page::Lesson && m.lesson >= 0);
+    const Lesson& ls = lessons()[static_cast<std::size_t>(std::max(0, m.lesson))];
+    check("the first lesson is C++ lesson 1", ls.id == "cpp01_hello");
+    check("the code editor is on the page", shown(a.editor));
+    a.set_editor_text("int main() {");
+    SendMessageW(a.editor, EM_SETSEL, 12, 12);
+    SendMessageW(a.editor, WM_KEYDOWN, VK_RETURN, 0);
+    check("Enter after { indents the next line", a.editor_text() == "int main() {\n    ");
+    SendMessageW(a.editor, WM_KEYDOWN, VK_TAB, 0);
+    check("Tab types four spaces", a.editor_text() == "int main() {\n        ");
+    a.set_editor_text(ls.starter);
+    click(Control::LessonRun);
+    check("the starter code as it is does not pass", pump([&] { return !m.lesson_running && m.lesson_ran; }, 90000) && !m.lesson_check.passed);
+    a.set_editor_text("#include <iostream>\n\nint main() {\n    std::cout << \"Hello, C++!\\n\";\n    return 0;\n}\n");
+    click(Control::LessonRun);
+    check("the right code passes", pump([&] { return !m.lesson_running && m.lesson_ran; }, 90000) && m.lesson_check.passed);
+    check("the lesson step counts as right", m.quest.steps[2].done && m.quest.steps[2].right);
+    click(Control::LessonNext);
+    check("the editor hides when the lesson is left", !shown(a.editor));
+    check("step 4 reads a program", pump(guess_ready, 90000));
+    click(Control::Guess, 3);
+    check("step 4's guess runs", pump(ran, 90000));
+    click(Control::NextAfterResult);
+    check("step 5 is a quiz card", m.page == Page::Quiz);
+    click(Control::QuizAnswer, 1);
+    click(Control::QuizNext);
+    check("the quest finishes", m.page == Page::QuestDone && m.quest.finished);
+    click(Control::ChestOpen);
+    check("the chest opens", m.quest.chest_open);
+    check("XP was earned", m.progress.xp > 0);
+    click(Control::QuestHome);
+    check("Take a break goes home and ends the quest", m.page == Page::Home && !m.quest.active);
+    check("progress is saved (to the test file)", load_progress().quests_done == 1);
+
+    // ---- the Bug Boss and its timer
+    m.progress.quests_done = kQuestsPerBoss - 1;
+    click(Control::HeroQuest);
+    check("every third quest is a Bug Boss", m.quest.boss && m.quest.boss_hp == kBossHp);
+    check("the boss's first guess is ready", pump(guess_ready, 90000));
+    click(Control::BossTimer);
+    check("the timer switches on", m.quest.timer);
+    m.quest.time_left = 0.05f;
+    check("when time runs out the step is skipped, no penalty", pump([&] { return m.quest.at >= 1; }, 5000) && m.quest.steps[0].skipped);
+    click(Control::QuestQuit);
+    check("quitting goes home", m.page == Page::Home && !m.quest.active);
+
+    // ---- Practice with typed answers
+    click(Control::NavPractice);
+    click(Control::LevelTab, 2);
+    int guess_tile = -1;
+    for (std::size_t i = 0; i < a.layout.example_items.size(); ++i)
+        if (std::string(examples()[a.layout.example_items[i]].file) == "guess_number.cpp") guess_tile = static_cast<int>(i);
+    check("Level 3 lists Guess my number", guess_tile >= 0);
+    click(Control::Example, guess_tile);
+    check("the program is read", pump([&] { return !m.importing && !m.challenges.empty(); }, 90000));
+    check("it is seen to read typed answers, which start as 3, 8, 5", m.program_reads_input && m.program_input == "3\n8\n5\n");
+    check("the answers box is on the Look page", shown(a.input_edit));
+    auto type = [&](const wchar_t* keys) {
+        SendMessageW(a.input_edit, EM_SETSEL, 0, -1);
+        for (const wchar_t* k = keys; *k; ++k) SendMessageW(a.input_edit, WM_CHAR, *k, 0);
+    };
+    type(L"9\r5");
+    check("typing in the answers box changes the answers", m.program_input == "9\n5");
+    SetWindowTextW(a.input_edit, L"3\r\n8\r\n5");   // replaced all at once (as a paste can): read before the next click
+    click(Control::StepBreak);
+    check("answers set all at once are still used", m.program_input == "3\n8\n5");
+    m.current = 0;
+    click(Control::Guess, 3);
+    check("both versions run", pump(ran, 90000));
+    check("the typed answers reach the program", m.original.output.find("You got it in 3 tries") != std::string::npos);
+
+    // ---- watching it run
+    click(Control::StepLook);
+    click(Control::Watch);
+    check("the replay records steps", pump([&] { return !m.replay_loading; }, 90000) && m.replay.ok && m.replay.steps.size() > 5);
+    a.set_playing(false);
+    a.go_to_step(2);
+    check("stepping moves the lit line", m.replay_step == 2 && m.highlight_line == m.replay.steps[2].line);
+    bool saw_guess = false;
+    for (const ReplayStep& s : m.replay.steps)
+        for (const ReplayVar& v : s.vars) saw_guess = saw_guess || v.name == "guess";
+    check("the replay shows the boxes' values", saw_guess);
+    click(Control::ReplayStop);
+    check("Stop watching returns to Look", m.page == Page::Look && !m.replay_open);
+
+    // ---- the other places
+    click(Control::NavLearn);
+    check("Lessons lists every lesson", m.page == Page::Lessons && a.layout.lesson_tiles.size() == lessons().size() && lessons().size() >= 51);
+    click(Control::LessonTile, 0);
+    check("a lesson tile opens that lesson", m.page == Page::Lesson);
+    click(Control::SessionBack);
+    check("Back returns to Lessons", m.page == Page::Lessons);
+    click(Control::NavBadges);
+    check("Badges shows the quest badge earned", m.page == Page::Badges && m.progress.badges.count("quest1") > 0);
+    click(Control::NavHome);
+    check("Home is one click away", m.page == Page::Home);
+
+    log << "\n" << passes << " passed, " << fails << " failed\n";
+    DestroyWindow(hwnd);
+    MSG msg;
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
+    std::filesystem::remove(progress, ec);
+    CoUninitialize();
+    return fails;
 }
 
 int run_window(const std::wstring& file) {

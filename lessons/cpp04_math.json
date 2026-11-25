@@ -1,0 +1,15 @@
+{
+  "title": "Math with whole numbers",
+  "language": "cpp",
+  "course": 10,
+  "number": 4,
+  "instructions": [
+    "C++ can do + (add), - (take away), * (times) and / (divide).",
+    "Careful: dividing two ints gives an int. 17 / 5 is 3, not 3.4. The leftover is thrown away.",
+    "% gives the leftover (the remainder): 17 % 5 is 2."
+  ],
+  "task": "Fill in the two blanks so the program prints:  17 / 5 = 3 remainder 2",
+  "starter_code": "#include <iostream>\n\nint main() {\n    int a = 17;\n    int b = 5;\n    int whole = 0;   // put a / b here\n    int left = 0;    // put a % b here\n    std::cout << a << \" / \" << b << \" = \" << whole << \" remainder \" << left << \"\\n\";\n    return 0;\n}\n",
+  "hint": "Use / for how many whole times, and % for the leftover:\n\n    int whole = a / b;\n    int left = a % b;",
+  "expected_output": "17 / 5 = 3 remainder 2"
+}

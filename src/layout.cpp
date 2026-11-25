@@ -94,7 +94,7 @@ Layout compute_layout(const Model& m, float width, float height) {
         l.tiles_area = {c.x + 24, ty, inner, th};
         const std::vector<std::size_t> items = examples_in_level(m.pick_level);
         const float gap = 16;
-        const float n = static_cast<float>(std::max<std::size_t>(3, items.size()));
+        const float n = static_cast<float>(std::clamp<std::size_t>(items.size(), 3, 4));
         const float tw = std::max(0.0f, (inner - (n - 1) * gap) / n);
         for (std::size_t i = 0; i < items.size(); ++i) {
             l.examples.push_back({c.x + 24 + static_cast<float>(i) * (tw + gap), ty, tw, th});
@@ -124,7 +124,12 @@ Layout compute_layout(const Model& m, float width, float height) {
         const float bw = std::max(0.0f, (b.w - 48 - 12) / 2);
         l.watch_button = {b.x + 24, b.bottom() - 64, bw, 40};
         l.next_step = {l.watch_button.right() + 12, b.bottom() - 64, bw, 40};
-        l.look_list = {b.x + 12, b.y + 84, std::max(0.0f, b.w - 24), std::max(0.0f, l.next_step.y - 32 - (b.y + 84))};
+        float list_end = l.next_step.y - 32;
+        if (m.program_reads_input) {
+            l.input_box = {b.x + 24, l.watch_button.y - 14 - 64, std::max(0.0f, b.w - 48), 64};
+            list_end = l.input_box.y - 26 - 22;
+        }
+        l.look_list = {b.x + 12, b.y + 84, std::max(0.0f, b.w - 24), std::max(0.0f, list_end - (b.y + 84))};
         const int fit = std::max(1, static_cast<int>(l.look_list.h / kLookRowHeight));
         const int total = static_cast<int>(m.look.size());
         l.look_first = std::clamp(m.look_scroll, 0, std::max(0, total - fit));
@@ -218,12 +223,17 @@ Layout compute_layout(const Model& m, float width, float height) {
         l.lesson_text = {a.x + 24, a.y + 84, std::max(0.0f, a.w - 48), std::max(0.0f, a.h - 100)};
         l.lesson_next = {b.x + 16, b.bottom() - 56, std::max(0.0f, b.w - 32), 40};
         const float avail = l.lesson_next.y - 12 - (b.y + 84);
-        l.editor = {b.x + 16, b.y + 84, std::max(0.0f, b.w - 32), std::max(120.0f, std::floor(avail * 0.52f))};
+        l.editor = {b.x + 16, b.y + 84, std::max(0.0f, b.w - 32), std::max(120.0f, std::floor(avail * (m.lesson_reads_input ? 0.4f : 0.52f)))};
         const float by = l.editor.bottom() + 12;
         l.run_button = {b.x + 16, by, 132, 40};
         l.hint_button = {l.run_button.right() + 8, by, 140, 40};
         l.reset_button = {l.hint_button.right() + 8, by, 104, 40};
-        l.lesson_banner = {b.x + 16, by + 52, std::max(0.0f, b.w - 32), 50};
+        float banner_y = by + 52;
+        if (m.lesson_reads_input) {
+            l.input_box = {b.x + 16, by + 52 + 22, std::max(0.0f, b.w - 32), 48};
+            banner_y = l.input_box.bottom() + 10;
+        }
+        l.lesson_banner = {b.x + 16, banner_y, std::max(0.0f, b.w - 32), 50};
         l.lesson_out = {b.x + 16, l.lesson_banner.bottom() + 8, std::max(0.0f, b.w - 32), std::max(0.0f, l.lesson_next.y - 12 - (l.lesson_banner.bottom() + 8))};
         break;
     }

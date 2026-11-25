@@ -16,7 +16,13 @@ namespace sparring {
 
 namespace {
 
+std::wstring& progress_override() {
+    static std::wstring path;
+    return path;
+}
+
 std::filesystem::path progress_file() {
+    if (!progress_override().empty()) return progress_override();
     PWSTR base = nullptr;
     std::filesystem::path dir;
     if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &base))) dir = std::filesystem::path(base) / L"CppSparring";
@@ -78,6 +84,8 @@ std::string shifted(const SYSTEMTIME& base, int days) {
 }
 
 }  // namespace
+
+void use_progress_file(const std::wstring& path) { progress_override() = path; }
 
 const std::vector<Badge>& all_badges() {
     static const std::vector<Badge> all = {

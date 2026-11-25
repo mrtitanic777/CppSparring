@@ -1,0 +1,16 @@
+{
+  "title": "Reading what you type (cin)",
+  "language": "cpp",
+  "course": 10,
+  "number": 8,
+  "instructions": [
+    "std::cin >> n; waits for the person to type something, then puts it into the box n.",
+    "Here, what the program reads comes from the answers box under the Run button. It starts with 7. Try other numbers!",
+    "Notice the arrows: << sends words out to the screen, >> brings what was typed in."
+  ],
+  "task": "Read a number into n, so with the answer 7 the program prints:  Type a number: Double is 14",
+  "starter_code": "#include <iostream>\n\nint main() {\n    int n = 0;\n    std::cout << \"Type a number: \";\n    // read a number into n here\n\n    std::cout << \"Double is \" << n * 2 << \"\\n\";\n    return 0;\n}\n",
+  "hint": "Bring the typed number into the box:\n\n    std::cin >> n;",
+  "expected_output": "Type a number: Double is 14",
+  "input": "7"
+}

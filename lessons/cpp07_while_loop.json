@@ -1,0 +1,14 @@
+{
+  "title": "Loops (while)",
+  "language": "cpp",
+  "course": 10,
+  "number": 7,
+  "instructions": [
+    "while (question) { ... } keeps repeating as long as the question is true.",
+    "Something inside must change, or the question stays true forever and the loop never ends!"
+  ],
+  "task": "Add the missing line so it counts down and prints:  3 2 1 Go!  (each on its own line)",
+  "starter_code": "#include <iostream>\n\nint main() {\n    int count = 3;\n    while (count > 0) {\n        std::cout << count << \"\\n\";\n        // make count one smaller here\n    }\n    std::cout << \"Go!\\n\";\n    return 0;\n}\n",
+  "hint": "Take one away each time round:\n\n        count = count - 1;",
+  "expected_output": "3\n2\n1\nGo!"
+}

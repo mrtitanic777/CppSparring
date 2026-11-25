@@ -1,0 +1,16 @@
+{
+  "title": "Choices (if / else)",
+  "language": "cpp",
+  "course": 10,
+  "number": 5,
+  "instructions": [
+    "if (something is true) { ... } runs the lines inside only when the question is true.",
+    "else { ... } runs when it was false.",
+    "Questions use > (bigger), < (smaller), >= , <= , == (the same) and != (not the same).",
+    "Remember: == asks a question, but a single = changes a box."
+  ],
+  "task": "Finish the if so the program prints:  15 is big",
+  "starter_code": "#include <iostream>\n\nint main() {\n    int n = 15;\n    if (/* is n bigger than 10? */) {\n        std::cout << n << \" is big\\n\";\n    } else {\n        std::cout << n << \" is small\\n\";\n    }\n    return 0;\n}\n",
+  "hint": "Bigger than is >:\n\n    if (n > 10) {",
+  "expected_output": "15 is big"
+}

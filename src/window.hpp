@@ -26,4 +26,8 @@ struct ShotOptions {
 };
 int screenshot(const ShotOptions& o);
 
+// Clicks through every part of the real window, never shown, and writes what passed and failed to `log_path`.
+// Uses a throwaway progress file. Returns the number of failures.
+int self_test(const std::wstring& log_path);
+
 }  // namespace sparring

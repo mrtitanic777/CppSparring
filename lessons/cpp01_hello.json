@@ -1,0 +1,16 @@
+{
+  "title": "Hello, C++",
+  "language": "cpp",
+  "course": 10,
+  "number": 1,
+  "instructions": [
+    "Every C++ program starts in main. The computer runs the lines inside its { } from top to bottom.",
+    "std::cout << \"...\"; prints the words between the quotes.",
+    "\"\\n\" means 'new line', like pressing Enter.",
+    "Every line that does something ends with a semicolon ;"
+  ],
+  "task": "Make the program print exactly:  Hello, C++!",
+  "starter_code": "#include <iostream>\n\nint main() {\n    // print Hello, C++! here\n\n    return 0;\n}\n",
+  "hint": "Use std::cout with the words in quotes:\n\n    std::cout << \"Hello, C++!\\n\";",
+  "expected_output": "Hello, C++!"
+}

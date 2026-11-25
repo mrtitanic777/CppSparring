@@ -51,8 +51,8 @@ int pick_quiz(const Progress& p, Dice& dice, int avoid) {
 int next_lesson(const Progress& p, Dice& dice) {
     const auto& all = lessons();
     if (all.empty()) return -1;
-    for (std::size_t i = 0; i < all.size(); ++i)
-        if (!p.lessons_done.count(all[i].id)) return static_cast<int>(i);
+    for (int i : lesson_order())
+        if (!p.lessons_done.count(all[static_cast<std::size_t>(i)].id)) return i;
     return dice.below(static_cast<int>(all.size()));
 }
 

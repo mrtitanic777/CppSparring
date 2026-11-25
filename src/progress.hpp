@@ -21,6 +21,9 @@ struct Badge {
 const std::vector<Badge>& all_badges();
 const Badge* find_badge(const std::string& id);
 
+// Use another file than %APPDATA%\CppSparring\progress.txt (the self-test keeps the real one untouched).
+void use_progress_file(const std::wstring& path);
+
 Progress load_progress();
 void save_progress(const Progress& p);
 

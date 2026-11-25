@@ -1,0 +1,17 @@
+{
+  "title": "Boxes (variables)",
+  "language": "cpp",
+  "course": 10,
+  "number": 2,
+  "instructions": [
+    "A variable is a named box that holds a value. Its type says what can go inside.",
+    "- int holds whole numbers, like 3.",
+    "- double holds numbers with a decimal point, like 2.5.",
+    "- std::string holds words. It needs #include <string>.",
+    "You can print a box by putting its name after <<, with no quotes."
+  ],
+  "task": "Make a box called pies that holds 2.5, so the program prints:  I have 3 apples and 2.5 pies",
+  "starter_code": "#include <iostream>\n\nint main() {\n    int apples = 3;\n    // make a double box called pies here\n\n    std::cout << \"I have \" << apples << \" apples and \" << pies << \" pies\\n\";\n    return 0;\n}\n",
+  "hint": "A decimal number goes in a double box:\n\n    double pies = 2.5;",
+  "expected_output": "I have 3 apples and 2.5 pies"
+}

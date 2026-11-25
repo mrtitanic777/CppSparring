@@ -1,0 +1,15 @@
+{
+  "title": "Jobs (functions)",
+  "language": "cpp",
+  "course": 11,
+  "number": 9,
+  "instructions": [
+    "A function is a job with a name. You write it once and use it as many times as you like.",
+    "int add(int a, int b) means: a job called add, it needs two whole numbers, and it hands back a whole number.",
+    "return hands the answer back to whoever asked."
+  ],
+  "task": "Finish the add job so the program prints:  2 + 3 = 5",
+  "starter_code": "#include <iostream>\n\nint add(int a, int b) {\n    // hand back a plus b\n    return 0;\n}\n\nint main() {\n    std::cout << \"2 + 3 = \" << add(2, 3) << \"\\n\";\n    return 0;\n}\n",
+  "hint": "Hand back the sum:\n\n    return a + b;",
+  "expected_output": "2 + 3 = 5"
+}

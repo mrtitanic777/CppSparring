@@ -1,0 +1,15 @@
+{
+  "title": "Promises (const)",
+  "language": "cpp",
+  "course": 11,
+  "number": 11,
+  "instructions": [
+    "const in front of a box is a promise: this box will never change.",
+    "If any line tries to change it, the computer refuses to build the program. That's a good thing: it caught a mistake!",
+    "Run it first and read what the computer says."
+  ],
+  "task": "The program breaks its own promise. Delete the line that changes lives, so it builds and prints:  Lives: 3",
+  "starter_code": "#include <iostream>\n\nint main() {\n    const int lives = 3;\n    lives = lives + 1;\n    std::cout << \"Lives: \" << lives << \"\\n\";\n    return 0;\n}\n",
+  "hint": "A const box can't change, so remove this line:\n\n    lives = lives + 1;",
+  "expected_output": "Lives: 3"
+}

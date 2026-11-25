@@ -187,6 +187,12 @@ struct Model {
     std::vector<LookItem> look;
     int look_scroll = 0;
 
+    // what the program reads when it asks the person to type (one answer per line), used for every run of it
+    bool program_reads_input = false;
+    std::string program_input;
+    bool lesson_reads_input = false;
+    std::string lesson_input;
+
     std::vector<MutationToggle> toggles;
     std::vector<Challenge> challenges;
     int current = 0;
@@ -273,6 +279,7 @@ struct Layout {
 
     // Look
     Rect code_view, look_list, next_step, watch_button;
+    Rect input_box;   // the typed answers (Look and Lesson), when the program reads any
     std::vector<Rect> rows;
     int look_first = 0;
     int look_hidden = 0;

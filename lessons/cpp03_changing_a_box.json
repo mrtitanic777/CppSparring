@@ -1,0 +1,15 @@
+{
+  "title": "Changing a box",
+  "language": "cpp",
+  "course": 10,
+  "number": 3,
+  "instructions": [
+    "The = sign is not 'equals' like in math. It means 'gets a copy of'.",
+    "Read it right to left: score = score + 5; works out score + 5, then puts the answer back into score.",
+    "So the box on the left changes, and the right side is where the value comes from."
+  ],
+  "task": "Add one line so score goes from 10 to 15. The program should print:  Score: 15",
+  "starter_code": "#include <iostream>\n\nint main() {\n    int score = 10;\n    // add 5 to score here\n\n    std::cout << \"Score: \" << score << \"\\n\";\n    return 0;\n}\n",
+  "hint": "Work it out on the right, store it on the left:\n\n    score = score + 5;",
+  "expected_output": "Score: 15"
+}

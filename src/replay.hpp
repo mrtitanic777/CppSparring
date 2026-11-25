@@ -13,6 +13,6 @@ namespace sparring {
 std::string instrument(const std::string& source, const std::vector<AstNode>& nodes);
 
 // Builds, runs and reads back `source` (the lines must match `nodes`; a challenge's change keeps every line where it was).
-Replay record_replay(const std::string& source, const std::vector<AstNode>& nodes, const std::string& original_path);
+Replay record_replay(const std::string& source, const std::vector<AstNode>& nodes, const std::string& original_path, const std::string& input = {});
 
 }  // namespace sparring

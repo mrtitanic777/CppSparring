@@ -11,9 +11,14 @@ struct ProcessResult {
     std::string output;
 };
 
-// Runs a command line with no console window and stdin from NUL. Output goes to `on_chunk` when given, else into `output`.
+// Runs a command line with no console window. It reads `input` as if typed (nothing: stdin is NUL). Output goes to `on_chunk`
+// when given, else into `output`.
 ProcessResult run_process(const std::string& command_line, unsigned long timeout_ms, bool merge_stderr = true,
-                          const std::function<void(const char*, std::size_t)>& on_chunk = {}, const std::string& cwd = {});
+                          const std::function<void(const char*, std::size_t)>& on_chunk = {}, const std::string& cwd = {},
+                          const std::string& input = {});
+
+// Whether a program asks the person running it to type something.
+bool reads_input(const std::string& source);
 
 struct CompileResult {
     bool compiled = false;
@@ -24,12 +29,13 @@ struct CompileResult {
     bool timed_out = false;
 };
 
-CompileResult compile_and_run(const std::string& source_path);
+// `input`: what the program reads, as if typed (one answer per line).
+CompileResult compile_and_run(const std::string& source_path, const std::string& input = {});
 
 // Compiles `source` as if it were `original_path` (its folder stays on the include path).
-CompileResult compile_and_run_string(const std::string& source, const std::string& original_path);
+CompileResult compile_and_run_string(const std::string& source, const std::string& original_path, const std::string& input = {});
 
-// A lesson's program, written in C. It runs in a folder of its own, so files it writes land there.
-CompileResult compile_and_run_c(const std::string& source);
+// A lesson's program, in C or C++. It runs in a folder of its own, so files it writes land there.
+CompileResult compile_and_run_lesson(const std::string& source, bool cpp, const std::string& input = {});
 
 }  // namespace sparring

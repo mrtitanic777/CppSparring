@@ -1,0 +1,15 @@
+{
+  "title": "The real box (&)",
+  "language": "cpp",
+  "course": 11,
+  "number": 10,
+  "instructions": [
+    "When you give a box to a job, the job normally gets a copy. Changing the copy doesn't change yours.",
+    "Put & after the type, like int& n, and the job gets the real box instead.",
+    "This is the same bug as the Piggy bank program in Practice!"
+  ],
+  "task": "This program has a bug: double_it changes a copy. Fix it so it prints:  Before: 4  then  After: 8",
+  "starter_code": "#include <iostream>\n\nvoid double_it(int n) {\n    n = n * 2;\n}\n\nint main() {\n    int x = 4;\n    std::cout << \"Before: \" << x << \"\\n\";\n    double_it(x);\n    std::cout << \"After: \" << x << \"\\n\";\n    return 0;\n}\n",
+  "hint": "Give the job the real box by adding &:\n\n    void double_it(int& n) {",
+  "expected_output": "Before: 4\nAfter: 8"
+}

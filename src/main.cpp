@@ -16,6 +16,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {
     for (int i = 1; argv && i < argc; ++i) args.emplace_back(argv[i]);
     if (argv) LocalFree(argv);
 
+    if (!args.empty() && args[0] == L"--selftest" && args.size() >= 2) return sparring::self_test(args[1]);
     if (!args.empty() && args[0] == L"--screenshot" && args.size() >= 2) {
         sparring::ShotOptions o;
         o.out_png = args[1];

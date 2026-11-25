@@ -62,7 +62,11 @@ std::vector<Lesson> load() {
         l.starter = v.text("starter_code");
         l.hint = v.text("hint");
         l.expected = v.text("expected_output");
-        l.course = course_of(l.number);
+        l.input = v.text("input");
+        l.cpp = v.text("language") == "cpp";
+        if (const json::JValue* n = v.find("number")) l.number = static_cast<int>(n->num);
+        if (const json::JValue* c = v.find("course")) l.course = static_cast<int>(c->num);
+        else l.course = course_of(l.number);
         if (!l.title.empty()) out.push_back(std::move(l));
     }
     return out;
@@ -72,8 +76,11 @@ std::vector<Lesson> load() {
 
 const std::vector<Course>& courses() {
     static const std::vector<Course> all = {
-        {1, "Getting started"}, {2, "Boxes and math"}, {3, "Choices and loops"}, {4, "Lists and words"},
-        {5, "Pointers and memory"}, {6, "Jobs and blueprints"}, {7, "The rest of C"},
+        {10, "C++ 1", "C++: first steps"},     {11, "C++ 2", "C++: jobs, references and blueprints"},
+        {1, "C 1", "C: getting started"},      {2, "C 2", "C: boxes and math"},
+        {3, "C 3", "C: choices and loops"},    {4, "C 4", "C: lists and words"},
+        {5, "C 5", "C: pointers and memory"},  {6, "C 6", "C: jobs and blueprints"},
+        {7, "C 7", "C: the rest of C"},
     };
     return all;
 }
@@ -81,6 +88,14 @@ const std::vector<Course>& courses() {
 const std::vector<Lesson>& lessons() {
     static const std::vector<Lesson> all = load();
     return all;
+}
+
+std::vector<int> lesson_order() {
+    std::vector<int> out;
+    for (const Course& c : courses())
+        for (std::size_t i = 0; i < lessons().size(); ++i)
+            if (lessons()[i].course == c.number) out.push_back(static_cast<int>(i));
+    return out;
 }
 
 std::string normalize_output(const std::string& text) {
@@ -108,9 +123,11 @@ std::string normalize_output(const std::string& text) {
     return out;
 }
 
-LessonCheck check_lesson(const Lesson& l, const std::string& code) {
+bool lesson_reads_input(const Lesson& l) { return reads_input(l.starter) || reads_input(l.hint); }
+
+LessonCheck check_lesson(const Lesson& l, const std::string& code, const std::string& input) {
     LessonCheck c;
-    c.run = compile_and_run_c(code);
+    c.run = compile_and_run_lesson(code, l.cpp, input);
     // with nothing to compare against, the learner must at least have written something
     const bool wrote = normalize_output(code) != normalize_output(l.starter);
     c.passed = c.run.compiled && !c.run.crashed && !c.run.timed_out &&

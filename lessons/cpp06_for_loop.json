@@ -1,0 +1,17 @@
+{
+  "title": "Loops (for)",
+  "language": "cpp",
+  "course": 10,
+  "number": 6,
+  "instructions": [
+    "A for loop repeats some lines. It has three parts in its ( ):",
+    "- where to start: int i = 1",
+    "- when to keep going: i <= 5",
+    "- how to step: i = i + 1",
+    "Change one part and the loop runs a different number of times."
+  ],
+  "task": "Make the loop print the numbers 1 to 5, one per line.",
+  "starter_code": "#include <iostream>\n\nint main() {\n    for (int i = 1; /* keep going while... */; i = i + 1) {\n        std::cout << i << \"\\n\";\n    }\n    return 0;\n}\n",
+  "hint": "Keep going while i is 5 or less:\n\n    for (int i = 1; i <= 5; i = i + 1) {",
+  "expected_output": "1\n2\n3\n4\n5"
+}

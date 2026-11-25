@@ -681,8 +681,8 @@ void draw_home(Draw& d) {
     int done = 0;
     for (const Lesson& ls : lessons()) done += p.lessons_done.count(ls.id) > 0;
     int next = -1;
-    for (std::size_t i = 0; i < lessons().size() && next < 0; ++i)
-        if (!p.lessons_done.count(lessons()[i].id)) next = static_cast<int>(i);
+    for (int i : lesson_order())
+        if (next < 0 && !p.lessons_done.count(lessons()[static_cast<std::size_t>(i)].id)) next = i;
     const int level = highest_open_level(p);
     const struct {
         Control id;
@@ -713,6 +713,23 @@ void draw_home(Draw& d) {
     }
 }
 
+const Course& course_for(int number);
+
+// The answers the program reads when it asks you to type (a real edit box sits on it in the window).
+void draw_input_box(Draw& d, const Rect& r, const std::string& text) {
+    if (r.w <= 0) return;
+    const Palette& pal = d.pal;
+    d.glyph(L'\xE765', Rect{r.x, r.y - 22, 18, 18}, 12, pal.accent);
+    d.text(L"This program asks you to type. Your answers, one per line:", Rect{r.x + 22, r.y - 22, r.w - 22, 18}, 0, 12, kSemibold, pal.text2);
+    d.fill(r, 8, pal.dark ? color(0x1F1F1F) : color(0xFAFAFA));
+    d.stroke(r, 8, d.hot(Control::Editor) ? alpha(pal.accent, 0.6f) : alpha(pal.accent, 0.35f));
+    if (!d.m.native_editor) {
+        const std::vector<std::string> lines = split_lines(text);
+        for (std::size_t i = 0; i < lines.size() && r.y + 8 + static_cast<float>(i) * 19 < r.bottom() - 6; ++i)
+            d.text(widen(lines[i]), Rect{r.x + 12, r.y + 8 + static_cast<float>(i) * 19, r.w - 24, 19}, 3, 13, kNormal, pal.text);
+    }
+}
+
 // Inside a program or a lesson: back to where it came from, and a program's two steps.
 void draw_session_bar(Draw& d) {
     const Layout& l = d.l;
@@ -726,7 +743,7 @@ void draw_session_bar(Draw& d) {
     d.icon_button(Control::SessionBack, l.session_back, L'\xE72B', L"Back", true, false);
     std::wstring where;
     if (lesson && m.lesson >= 0 && m.lesson < static_cast<int>(lessons().size()))
-        where = std::format(L"Lessons  ›  Lesson {} of {}", m.lesson + 1, lessons().size());
+        where = std::format(L"Lessons  ›  {}", widen(course_for(lessons()[static_cast<std::size_t>(m.lesson)].course).name));
     else
         where = L"Practice  ›  " + widen(m.source_name);
     d.text(where, Rect{l.session_back.right() + 14, r.y, r.w - 420, r.h}, 0, 14, kSemibold, pal.text2);
@@ -1086,6 +1103,7 @@ void draw_look(Draw& d) {
     if (l.look_hidden > 0)
         d.text(std::format(L"Scroll down to see {} more  ↓", l.look_hidden), Rect{l.look_list.x, l.look_list.bottom() + 2, l.look_list.w, 18},
                0, 12, kNormal, pal.text3, DWRITE_TEXT_ALIGNMENT_CENTER);
+    draw_input_box(d, l.input_box, m.program_input);
     d.icon_button(Control::Watch, l.watch_button, L'\xE768', L"Watch it run", !m.importing && !m.nodes.empty(), false);
     d.button(Control::NextStep, l.next_step, L"Next: break it  →", !m.importing && !m.toggles.empty(), true);
 }
@@ -1272,6 +1290,13 @@ void draw_break(Draw& d) {
 
     // ---- the guess
     d.text(L"What do you think will happen?", l.question, 1, 18, kSemibold, pal.text);
+    if (m.program_reads_input) {
+        std::string typed;
+        for (const std::string& s : split_lines(m.program_input))
+            if (!s.empty()) typed += (typed.empty() ? "" : ", ") + s;
+        d.text(widen(typed.empty() ? std::string("It types nothing (set answers in Look)") : "It types: " + typed), l.question, 0, 12, kNormal,
+               pal.text3, DWRITE_TEXT_ALIGNMENT_TRAILING);
+    }
     const bool can_guess = ch.guess < 0 && !m.running;
     for (int i = 0; i < 4; ++i) {
         const Rect& r = l.guesses[static_cast<std::size_t>(i)];
@@ -1417,8 +1442,8 @@ void draw_lessons(Draw& d) {
     d.text(std::format(L"{} of {} done", done, all.size()), Rect{l.card_a.right() - 224, l.card_a.y + 24, 200, 24}, 1, 14, kSemibold, pal.text2,
            DWRITE_TEXT_ALIGNMENT_TRAILING);
     int next = -1;
-    for (std::size_t i = 0; i < all.size() && next < 0; ++i)
-        if (!p.lessons_done.count(all[i].id)) next = static_cast<int>(i);
+    for (int i : lesson_order())
+        if (next < 0 && !p.lessons_done.count(all[static_cast<std::size_t>(i)].id)) next = i;
 
     d.rt->PushAxisAlignedClip(rf(l.lessons_area), D2D1_ANTIALIAS_MODE_ALIASED);
     for (const auto& [r, number] : l.course_heads) {
@@ -1429,9 +1454,12 @@ void draw_lessons(Draw& d) {
                 ++n;
                 got += p.lessons_done.count(ls.id) > 0;
             }
-        const Rect chip{r.x, r.y + 5, 74, 20};
-        d.fill(chip, 10, alpha(pal.accent, pal.dark ? 0.2f : 0.12f));
-        d.text(std::format(L"COURSE {}", number), chip, 0, 10, kSemibold, pal.accent, DWRITE_TEXT_ALIGNMENT_CENTER);
+        const Course& course = course_for(number);
+        const bool cpp_track = number >= 10;
+        const D2D1_COLOR_F hue = cpp_track ? pal.accent : pal.teal;
+        const Rect chip{r.x, r.y + 5, 64, 20};
+        d.fill(chip, 10, alpha(hue, pal.dark ? 0.2f : 0.12f));
+        d.text(widen(course.tag), chip, 0, 10, kSemibold, hue, DWRITE_TEXT_ALIGNMENT_CENTER);
         d.text(widen(course_for(number).name), Rect{chip.right() + 10, r.y, r.w - 200, r.h}, 1, 16, kSemibold, pal.text);
         d.text(std::format(L"{}/{}", got, n), Rect{r.right() - 80, r.y, 80, r.h}, 1, 13, kSemibold, got == n ? pal.ok : pal.text3,
                DWRITE_TEXT_ALIGNMENT_TRAILING);
@@ -1530,7 +1558,7 @@ void draw_lesson(Draw& d) {
     const Rect& a = l.card_a;
 
     // ---- read
-    const std::wstring chip_text = std::format(L"LESSON {}  ·  {}", ls.number, widen(course_for(ls.course).name));
+    const std::wstring chip_text = std::format(L"{} LESSON {}  ·  {}", ls.cpp ? L"C++" : L"C", ls.number, widen(course_for(ls.course).name));
     const float cw = d.R.measure(chip_text, 0, 10, kSemibold) + 20;
     d.fill(Rect{a.x + 24, a.y + 20, cw, 20}, 10, alpha(pal.accent, pal.dark ? 0.2f : 0.12f));
     d.text(chip_text, Rect{a.x + 24, a.y + 20, cw, 20}, 0, 10, kSemibold, pal.accent, DWRITE_TEXT_ALIGNMENT_CENTER);
@@ -1587,7 +1615,7 @@ void draw_lesson(Draw& d) {
 
     // ---- write and run
     const Rect& b = l.card_b;
-    d.header(b, L"Your code", L"Real C, built and run by a real compiler.");
+    d.header(b, L"Your code", ls.cpp ? L"Real C++, built and run by a real compiler." : L"Real C, built and run by a real compiler.");
     const Rect& ed = l.editor;
     d.fill(ed, 8, editor_fill(pal));
     d.stroke(ed, 8, d.hot(Control::Editor) ? alpha(pal.accent, 0.6f) : pal.card_stroke);
@@ -1603,6 +1631,7 @@ void draw_lesson(Draw& d) {
     d.icon_button(Control::LessonRun, l.run_button, L'\xE768', m.lesson_running ? L"Running…" : L"Run", !m.lesson_running, true);
     d.icon_button(Control::LessonHint, l.hint_button, L'\xE82F', m.hint_shown ? L"Hide hint" : L"Show a hint", !ls.hint.empty(), false);
     d.icon_button(Control::LessonReset, l.reset_button, L'\xE72C', L"Reset", true, false);
+    draw_input_box(d, l.input_box, m.lesson_input);
 
     // ---- what happened
     const Rect& bn = l.lesson_banner;

@@ -111,6 +111,41 @@ int main() {
     return 0;
 }
 )"},
+        {3, "sum_to_ten.cpp", "Add them up", "Adds every number from 1 to 10.", L'\xE8EF',
+         R"(#include <iostream>
+
+int main() {
+    int total = 0;
+    for (int i = 1; i <= 10; i = i + 1) {
+        total += i;
+    }
+    std::cout << "1 + 2 + ... + 10 = " << total << "\n";
+    return 0;
+}
+)"},
+        {3, "guess_number.cpp", "Guess my number", "Keeps asking until you guess the secret number.", L'\xE897',
+         R"(#include <iostream>
+
+int main() {
+    const int secret = 5;
+    int guess = 0;
+    int tries = 0;
+    while (guess != secret) {
+        std::cout << "Your guess: ";
+        std::cin >> guess;
+        tries = tries + 1;
+        if (guess < secret) {
+            std::cout << "Too low!\n";
+        }
+        if (guess > secret) {
+            std::cout << "Too high!\n";
+        }
+    }
+    std::cout << "You got it in " << tries << " tries!\n";
+    return 0;
+}
+)",
+         "3\n8\n5\n"},
         // ---- level 4: blueprints
         {4, "pet.cpp", "Feed the pet", "A pet gets less hungry when you feed it.", L'\xEB51',
          R"(#include <iostream>
@@ -129,6 +164,60 @@ int main() {
     Pet cat{"Whiskers", 5};
     feed(cat);
     std::cout << cat.name << " hunger: " << cat.hunger << "\n";
+    return 0;
+}
+)"},
+        {4, "bank_account.cpp", "Bank account", "Puts money in, takes some out, and shows what's left.", L'\xE825',
+         R"(#include <iostream>
+#include <string>
+
+struct Account {
+    std::string owner;
+    int money;
+};
+
+void put_in(Account& acct, int amount) {
+    acct.money = acct.money + amount;
+}
+
+void take_out(Account& acct, int amount) {
+    acct.money = acct.money - amount;
+}
+
+void show(const Account& acct) {
+    std::cout << acct.owner << " has " << acct.money << " coins\n";
+}
+
+int main() {
+    Account mine{"Sam", 20};
+    put_in(mine, 15);
+    take_out(mine, 5);
+    show(mine);
+    return 0;
+}
+)"},
+        {4, "game_over.cpp", "Game over", "A player loses a life each time they get hit.", L'\xE7FC',
+         R"(#include <iostream>
+#include <string>
+
+struct Player {
+    std::string name;
+    int lives;
+};
+
+void get_hit(Player& p) {
+    p.lives = p.lives - 1;
+}
+
+int main() {
+    Player hero{"Max", 3};
+    for (int round = 1; round <= 3; round = round + 1) {
+        get_hit(hero);
+        std::cout << "Round " << round << ": " << hero.lives << " lives left\n";
+    }
+    if (hero.lives == 0) {
+        std::cout << "Game over!\n";
+    }
     return 0;
 }
 )"},
