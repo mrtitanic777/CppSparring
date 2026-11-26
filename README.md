@@ -15,12 +15,14 @@ really compiling and running the code.
 
 ## What's inside
 
-- **Daily Quest**: one big button, five short steps (about five minutes): a quiz card, a guess, a little code to write, another
-  guess, another quiz card. A treasure chest at the end.
+- **Daily Quest**: one big button, five short steps (about five minutes): a quiz card, a guess, a little code to write, a bug
+  to fix, another quiz card. A treasure chest at the end.
 - **Bug Boss**: every third quest. Five quick guesses; each right one knocks it back, and right answers in a row build a combo. The
   timer is off unless you switch it on.
 - **Practice**: fifteen programs in five levels (boxes, jobs, loops, blueprints, lists and games). Look inside a program first, with every part
-  explained in plain words, then try to break it.
+  explained in plain words, then try to break it, then fix it.
+- **Fix it**: CppSparring breaks the program for real (it keeps trying changes until one really changes what it prints, crashes it
+  or stops it building) and hands it to you to repair. It's fixed when it prints what the working program printed.
 - **Watch it run**: step through a program line by line and see every box (variable) change.
 - **Lessons**: 18 C++ lessons (up to vectors, strings and rock-paper-scissors) and 39 C lessons where you write the code yourself and the compiler checks what it prints. The C
   lessons come from [CodingTeacher](https://github.com/mrtitanic777/CodingTeacher).
@@ -35,6 +37,8 @@ penalty for skipping, and nothing to wander off to in the middle of a quest.
 | ![Break it](docs/break.png) | ![Watch it run](docs/replay.png) |
 | **Write it** | **Bug Boss** |
 | ![A lesson](docs/lesson.png) | ![Bug Boss](docs/boss.png) |
+| **Fix it** | |
+| ![Fix it](docs/fix.png) | |
 
 ## Building
 
@@ -91,9 +95,9 @@ each lesson's worked solution into `check` so it can be compiled and compared wi
 
 ## For developers
 
-- `cppsparring --selftest LOG` drives the real window, never shown, through a quest, a lesson, a Bug Boss, typed answers and the
-  replay, and writes what passed and failed to `LOG`. It uses a throwaway progress file.
-- `cppsparring --screenshot OUT.png --page home|practice|look|break|lessons|lesson|quiz|questdone|badges [--file X.cpp|example:N]
+- `cppsparring --selftest LOG` drives the real window, never shown, through a quest, a lesson, a Fix it puzzle, a Bug Boss, typed
+  answers and the replay, and writes what passed and failed to `LOG`. It uses a throwaway progress file.
+- `cppsparring --screenshot OUT.png --page home|practice|look|break|fix|lessons|lesson|quiz|questdone|badges|setup [--file X.cpp|example:N]
   [--guess 0-3] [--replay STEP] [--lesson N] [--run] [--dark]` draws the window into a PNG without showing it.
 - `cppsparring --make-icon OUT.ico` redraws the app icon.
 

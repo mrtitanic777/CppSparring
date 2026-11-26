@@ -10,7 +10,7 @@ int run_window(const std::wstring& file);
 struct ShotOptions {
     std::wstring out_png;
     std::wstring file;             // a .cpp, or "example:N"
-    std::wstring page = L"home";   // home | practice | look | break | lessons | lesson | quiz | questdone | badges
+    std::wstring page = L"home";   // home | practice | look | break | fix | lessons | lesson | quiz | questdone | badges | setup
     int guess = -1;                // >= 0: answer the first challenge with this and really run it
     int replay_step = -1;          // >= 0: watch it run, stopped at this step
     int level = 0;                 // the Pick page's level tab (0: the highest open one)

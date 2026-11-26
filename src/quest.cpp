@@ -83,15 +83,15 @@ Quest make_quest(const Progress& p) {
     guess1.example = pick_example(p, dice, -1);
     QuestStep write{StepKind::Write};
     write.lesson = next_lesson(p, dice);
-    QuestStep guess2{StepKind::Guess};
-    guess2.example = pick_example(p, dice, guess1.example);
+    QuestStep fix{StepKind::Fix};
+    fix.example = pick_example(p, dice, guess1.example);
     QuestStep quiz2{StepKind::Quiz};
     quiz2.quiz = pick_quiz(p, dice, quiz1.quiz);
     if (write.lesson < 0) {
-        write = guess2;
-        write.example = pick_example(p, dice, guess2.example);
+        write = guess1;
+        write.example = pick_example(p, dice, guess1.example);
     }
-    q.steps = {quiz1, guess1, write, guess2, quiz2};
+    q.steps = {quiz1, guess1, write, fix, quiz2};
     return q;
 }
 

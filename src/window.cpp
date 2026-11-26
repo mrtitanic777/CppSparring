@@ -20,6 +20,7 @@
 #include "compile.hpp"
 #include "examples.hpp"
 #include "explain.hpp"
+#include "fix.hpp"
 #include "layout.hpp"
 #include "mutate.hpp"
 #include "lessons.hpp"
@@ -54,6 +55,7 @@ constexpr UINT kWmReplayDone = WM_APP + 3;
 constexpr UINT kWmLessonDone = WM_APP + 4;
 constexpr UINT kWmRunLesson = WM_APP + 5;   // F5 in the editor
 constexpr UINT kWmToolsDone = WM_APP + 6;   // the check for Visual Studio and Clang is done
+constexpr UINT kWmFixDone = WM_APP + 7;     // a Fix it puzzle is ready
 constexpr float kCheerSeconds = 3.3f;
 constexpr int kEditorId = 100;
 
@@ -179,6 +181,11 @@ struct ReplayResult {
 struct LessonResult {
     unsigned id = 0;
     LessonCheck check;
+};
+
+struct FixResult {
+    unsigned id = 0;
+    FixPuzzle puzzle;
 };
 
 struct App {
@@ -342,7 +349,7 @@ struct App {
         } else if (input_edit) {
             ShowWindow(input_edit, SW_HIDE);
         }
-        if (model.page != Page::Lesson || model.lesson < 0) {
+        if (model.page != Page::Lesson || !model.shown_lesson()) {
             ShowWindow(editor, SW_HIDE);
             return;
         }
@@ -368,6 +375,7 @@ struct App {
     void open_lesson(int index) {
         if (index < 0 || index >= static_cast<int>(lessons().size())) return;
         close_replay();
+        model.fixing = model.fix_loading = false;
         model.lesson = index;
         model.lesson_ran = false;
         model.lesson_running = false;
@@ -383,13 +391,13 @@ struct App {
         start_page_anim();
     }
     void run_lesson() {
-        if (model.page != Page::Lesson || model.lesson < 0 || model.lesson_running) return;
+        if (model.page != Page::Lesson || !model.shown_lesson() || model.lesson_running) return;
         sync_answers();
         model.lesson_code = editor_text();
         model.lesson_running = true;
         const unsigned id = ++lesson_id;
         HWND h = hwnd;
-        const Lesson lesson = lessons()[static_cast<std::size_t>(model.lesson)];
+        const Lesson lesson = *model.shown_lesson();
         const std::string code = model.lesson_code;
         const std::string input = model.lesson_input;
         std::thread([h, id, lesson, code, input] {
@@ -399,6 +407,54 @@ struct App {
             if (PostMessageW(h, kWmLessonDone, 0, reinterpret_cast<LPARAM>(r.get()))) r.release();
         }).detach();
         invalidate();
+    }
+
+    // ---- Fix it: the open program with one real bug, to repair in the lesson editor
+    unsigned fix_id = 0;
+    void start_fix() {
+        if (model.source_path.empty()) return;
+        close_replay();
+        model.page = Page::Lesson;
+        model.fixing = true;
+        model.fix_loading = true;
+        model.fix_error.clear();
+        model.lesson = -1;
+        model.lesson_ran = model.lesson_running = model.hint_shown = false;
+        model.lesson_check = LessonCheck{};
+        model.lesson_reads_input = false;
+        const unsigned id = ++fix_id;
+        if (model.importing) return;   // it starts when the program has been read
+        if (model.toggles.empty()) {
+            model.fix_loading = false;
+            model.fix_error = model.import_error.empty() ? "There is nothing in this program that can be broken." : model.import_error;
+            return;
+        }
+        HWND h = hwnd;
+        const std::string path = model.source_path, name = model.source_name, source = model.source_code, input = model.program_input;
+        const std::vector<MutationToggle> toggles = model.toggles;
+        const std::set<std::string> fixed = model.progress.fixed;
+        const unsigned seed = static_cast<unsigned>(GetTickCount64());
+        std::thread([h, id, path, name, source, toggles, input, fixed, seed] {
+            auto r = std::make_unique<FixResult>();
+            r->id = id;
+            r->puzzle = make_fix(path, name, source, toggles, input, fixed, seed);
+            if (PostMessageW(h, kWmFixDone, 0, reinterpret_cast<LPARAM>(r.get()))) r.release();
+        }).detach();
+    }
+    void show_fix(FixPuzzle p) {
+        model.fix_loading = false;
+        if (!p.ok) {
+            model.fix_error = p.error;
+            if (QuestStep* s = step(); s && s->kind == StepKind::Fix) skip_step();   // (no penalty: it was nobody's fault)
+            return;
+        }
+        model.fix = std::move(p.lesson);
+        model.lesson_reads_input = !model.fix.input.empty() || reads_input(model.fix.starter);
+        model.lesson_input = model.fix.input;
+        set_editor_text(model.fix.starter);
+        relayout();
+        if (editor) SetFocus(editor);
+        start_page_anim();
     }
 
     // ---- can this computer build programs?
@@ -440,6 +496,13 @@ struct App {
         case StepKind::Write:
             open_lesson(s.lesson);
             break;
+        case StepKind::Fix: {
+            const Example& e = examples()[static_cast<std::size_t>(s.example)];
+            if (model.source_name != e.file || model.challenges.empty()) load_file(write_example(e));
+            start_fix();
+            start_page_anim();
+            break;
+        }
         case StepKind::Guess: {
             const Example& e = examples()[static_cast<std::size_t>(s.example)];
             if (model.source_name == e.file && !model.importing && !model.challenges.empty()) {
@@ -612,6 +675,7 @@ struct App {
         if (layout.session_back.contains(x, y)) return Control::SessionBack;
         if (layout.step_look.contains(x, y)) return Control::StepLook;
         if (layout.step_break.contains(x, y)) return Control::StepBreak;
+        if (layout.step_fix.contains(x, y)) return Control::StepFix;
         auto in = [&](const auto& rects, Control c) {
             for (std::size_t i = 0; i < rects.size(); ++i)
                 if (rects[i].contains(x, y)) {
@@ -829,7 +893,7 @@ struct App {
             break;
         case Control::SessionBack:
             close_replay();
-            model.page = model.page == Page::Lesson ? Page::Lessons : Page::Practice;
+            model.page = model.page == Page::Lesson && !model.fixing ? Page::Lessons : Page::Practice;
             break;
         case Control::StepLook:
             if (!loaded) break;
@@ -840,6 +904,10 @@ struct App {
             if (!loaded) break;
             close_replay();
             model.page = Page::Break;
+            break;
+        case Control::StepFix:
+            if (!loaded || (model.page == Page::Lesson && model.fixing)) break;
+            start_fix();
             break;
         case Control::SetupRecheck: start_tool_check(); break;
         case Control::SetupInstaller:
@@ -870,12 +938,13 @@ struct App {
         case Control::LessonRun: run_lesson(); break;
         case Control::LessonHint: model.hint_shown = !model.hint_shown; break;
         case Control::LessonReset:
-            if (model.lesson >= 0) set_editor_text(lessons()[static_cast<std::size_t>(model.lesson)].starter);
+            if (const Lesson* shown = model.shown_lesson()) set_editor_text(shown->starter);
             model.lesson_ran = false;
             break;
         case Control::LessonNext:
             if (!model.lesson_ran || !model.lesson_check.passed) break;
             if (model.quest.active && !model.quest.finished) advance_quest();
+            else if (model.fixing) start_fix();
             else {
                 const std::vector<int> order = lesson_order();
                 const auto at = std::find(order.begin(), order.end(), model.lesson);
@@ -1002,6 +1071,7 @@ struct App {
         model.original_ready = false;
         model.running = false;
         model.importing = true;
+        ++fix_id;   // a puzzle being made for the last program is not wanted now
         model.page = Page::Look;
         start_page_anim();
 
@@ -1304,6 +1374,7 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
             save_progress(model.progress);
         }
         if (QuestStep* s = step(); s && s->kind == StepKind::Guess && !model.quest.finished) prepare_guess();
+        if (model.page == Page::Lesson && model.fixing && model.fix_loading) start_fix();   // Fix it was pressed while it was being read
         relayout();
         invalidate();
         return 0;
@@ -1311,14 +1382,15 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
 
     case kWmLessonDone: {
         std::unique_ptr<LessonResult> r(reinterpret_cast<LessonResult*>(lp));
-        if (r->id != lesson_id || model.lesson < 0) return 0;
+        const Lesson* shown = model.shown_lesson();
+        if (r->id != lesson_id || !shown) return 0;
         model.lesson_running = false;
         model.lesson_ran = true;
         model.lesson_check = std::move(r->check);
         const bool passed = model.lesson_check.passed;
         const int before = model.progress.xp;
-        cheer(record_lesson(model.progress, lessons()[static_cast<std::size_t>(model.lesson)].id, passed));
-        if (QuestStep* s = step(); s && s->kind == StepKind::Write && s->lesson == model.lesson && passed) {
+        cheer(model.fixing ? record_fix(model.progress, shown->id, passed) : record_lesson(model.progress, shown->id, passed));
+        if (QuestStep* s = step(); s && passed && ((s->kind == StepKind::Write && !model.fixing && s->lesson == model.lesson) || (s->kind == StepKind::Fix && model.fixing))) {
             s->done = s->right = true;
             model.quest.xp += model.progress.xp - before;
         }
@@ -1334,6 +1406,15 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
     case kWmRunLesson:
         run_lesson();
         return 0;
+
+    case kWmFixDone: {
+        std::unique_ptr<FixResult> r(reinterpret_cast<FixResult*>(lp));
+        if (r->id != fix_id || !model.fixing || !model.fix_loading) return 0;
+        show_fix(std::move(r->puzzle));
+        relayout();
+        invalidate();
+        return 0;
+    }
 
     case kWmToolsDone: {
         std::unique_ptr<ToolCheck> r(reinterpret_cast<ToolCheck*>(lp));
@@ -1530,6 +1611,7 @@ int render_png(const ShotOptions& o) {
              : page == L"questdone" ? Page::QuestDone
              : page == L"practice"  ? Page::Practice
              : page == L"setup"     ? Page::Setup
+             : page == L"fix"       ? Page::Lesson
                                     : Page::Home;
     m.tools = Tools::Ready;
     if (m.page == Page::Setup) {
@@ -1570,6 +1652,20 @@ int render_png(const ShotOptions& o) {
         m.hint_shown = o.hint;
         if (o.run_lesson) {
             m.lesson_check = check_lesson(ls, m.lesson_code, m.lesson_input);
+            m.lesson_ran = true;
+        }
+    }
+    if (page == L"fix") {   // Fix it on the --file program: really pick a bug (with --run, run the broken code as it is)
+        m.fixing = true;
+        const FixPuzzle p = make_fix(m.source_path, m.source_name, m.source_code, m.toggles, m.program_input, {}, 7);
+        m.fix_error = p.ok ? std::string() : p.error;
+        m.fix = p.lesson;
+        m.lesson_code = m.fix.starter;
+        m.lesson_reads_input = !m.fix.input.empty();
+        m.lesson_input = m.fix.input;
+        m.hint_shown = o.hint;
+        if (o.run_lesson && p.ok) {
+            m.lesson_check = check_lesson(m.fix, m.lesson_code, m.lesson_input);
             m.lesson_ran = true;
         }
     }
@@ -1812,11 +1908,21 @@ int self_test(const std::wstring& log_path) {
     check("the right code passes", pump([&] { return !m.lesson_running && m.lesson_ran; }, 90000) && m.lesson_check.passed);
     check("the lesson step counts as right", m.quest.steps[2].done && m.quest.steps[2].right);
     click(Control::LessonNext);
-    check("the editor hides when the lesson is left", !shown(a.editor));
-    check("step 4 reads a program", pump(guess_ready, 90000));
-    click(Control::Guess, 3);
-    check("step 4's guess runs", pump(ran, 90000));
-    click(Control::NextAfterResult);
+    check("step 4 is Fix it, with the editor hidden while a bug is picked", m.page == Page::Lesson && m.fixing && m.fix_loading && !shown(a.editor));
+    auto fix_ready = [&] { return m.fixing && !m.fix_loading; };
+    auto lesson_done = [&] { return !m.lesson_running && m.lesson_ran; };
+    check("a bug is picked that really breaks the program",
+          pump(fix_ready, 180000) && m.fix_error.empty() && m.fix.starter != m.source_code && !m.fix.expected.empty());
+    check("the broken program is in the editor", shown(a.editor) && a.editor_text() == m.fix.starter);
+    click(Control::LessonRun);
+    check("the broken program as it is does not pass", pump(lesson_done, 90000) && !m.lesson_check.passed);
+    a.set_editor_text(m.source_code);
+    click(Control::LessonRun);
+    check("putting it back fixes it", pump(lesson_done, 90000) && m.lesson_check.passed);
+    check("the fix counts in the quest, earns its badge and is remembered",
+          m.quest.steps[3].done && m.quest.steps[3].right && m.progress.badges.count("fix1") && load_progress().fixed.count(m.fix.id));
+    click(Control::LessonNext);
+    check("the editor hides when Fix it is left", !shown(a.editor));
     check("step 5 is a quiz card", m.page == Page::Quiz);
     click(Control::QuizAnswer, 1);
     click(Control::QuizNext);
@@ -1918,6 +2024,11 @@ int self_test(const std::wstring& log_path) {
     check("turning == into = on text really doesn't build", pump(ran, 90000) &&
                                                                m.challenges[static_cast<std::size_t>(m.current)].truth == static_cast<int>(Outcome::WontBuild));
     check("the typed move reaches the program", m.original.output.find("You win!") != std::string::npos);
+    click(Control::StepFix);
+    check("Fix it on a program that reads typed answers finds a bug",
+          pump(fix_ready, 180000) && m.fix_error.empty() && m.fix.input == "rock\n" && m.fix.expected.find("You win!") != std::string::npos);
+    click(Control::SessionBack);
+    check("Back from Fix it returns to Practice", m.page == Page::Practice);
 
     // ---- the other places
     click(Control::NavLearn);

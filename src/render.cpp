@@ -526,8 +526,9 @@ void draw_rail(Draw& d) {
     for (const auto& it : items) {
         const Rect& r = *it.rect;
         const Page p = d.m.page;
-        const bool on = p == it.page || (it.page == Page::Lessons && p == Page::Lesson) ||
-                        (it.page == Page::Practice && (p == Page::Look || p == Page::Break)) ||
+        const bool fix = p == Page::Lesson && d.m.fixing;
+        const bool on = p == it.page || (it.page == Page::Lessons && p == Page::Lesson && !fix) ||
+                        (it.page == Page::Practice && (p == Page::Look || p == Page::Break || fix)) ||
                         (it.page == Page::Home && (p == Page::Quiz || p == Page::QuestDone));
         const float dim = it.enabled ? 1.0f : 0.4f;
         if (on) d.fill(r, 6, alpha(pal.text, pal.dark ? 0.07f : 0.055f));
@@ -562,7 +563,10 @@ void draw_status(Draw& d) {
     case Page::Break: text = "Guess what will happen (keys 1 to 4), then press Enter to go on. Esc goes back."; break;
     case Page::Badges: text = "Your badges and stars stay, even after you close CppSparring."; break;
     case Page::Lessons: text = "Pick a lesson. You'll write a little C, and the computer checks it for real."; break;
-    case Page::Lesson: text = "Write the code, then press Run (or F5). Stuck? A hint is one click away."; break;
+    case Page::Lesson:
+        text = d.m.fixing ? "Find the bug, fix it, then press Run (or F5). Stuck? A hint is one click away."
+                          : "Write the code, then press Run (or F5). Stuck? A hint is one click away.";
+        break;
     case Page::Quiz: text = "Answer from memory (keys A to D). Remembering is what makes it stick."; break;
     case Page::QuestDone: text = "Quest done! Open the chest, then go again or take a break."; break;
     case Page::Setup: text = "CppSparring needs Microsoft's free C++ tools to build programs."; break;
@@ -751,18 +755,21 @@ void draw_session_bar(Draw& d) {
     const bool lesson = m.page == Page::Lesson;
     d.icon_button(Control::SessionBack, l.session_back, L'\xE72B', L"Back", true, false);
     std::wstring where;
-    if (lesson && m.lesson >= 0 && m.lesson < static_cast<int>(lessons().size()))
+    if (lesson && !m.fixing && m.lesson >= 0 && m.lesson < static_cast<int>(lessons().size()))
         where = std::format(L"Lessons  ›  {}", widen(course_for(lessons()[static_cast<std::size_t>(m.lesson)].course).name));
     else
         where = L"Practice  ›  " + widen(m.source_name);
-    d.text(where, Rect{l.session_back.right() + 14, r.y, r.w - 420, r.h}, 0, 14, kSemibold, pal.text2);
-    if (lesson) return;
+    d.text(where, Rect{l.session_back.right() + 14, r.y, std::max(0.0f, l.step_look.x - 20 - (l.session_back.right() + 14)), r.h}, 0, 14,
+           kSemibold, pal.text2);
+    if (l.step_look.w <= 0) return;
     const struct {
         Control id;
         const Rect* rect;
         const wchar_t* label;
         Page page;
-    } steps[] = {{Control::StepLook, &l.step_look, L"1  Look inside", Page::Look}, {Control::StepBreak, &l.step_break, L"2  Break it", Page::Break}};
+    } steps[] = {{Control::StepLook, &l.step_look, L"1  Look inside", Page::Look},
+                 {Control::StepBreak, &l.step_break, L"2  Break it", Page::Break},
+                 {Control::StepFix, &l.step_fix, L"3  Fix it", Page::Lesson}};
     for (const auto& s : steps) {
         const bool on = m.page == s.page;
         const Rect& sr = *s.rect;
@@ -770,7 +777,8 @@ void draw_session_bar(Draw& d) {
         else d.tile(sr, d.hot(s.id), d.down(s.id), true, pal.accent);
         d.text(s.label, sr, 0, 13, kSemibold, on ? pal.accent_text : pal.text, DWRITE_TEXT_ALIGNMENT_CENTER);
     }
-    d.text(L"›", Rect{l.step_look.right(), r.y, 8, r.h}, 0, 14, kSemibold, pal.text3, DWRITE_TEXT_ALIGNMENT_CENTER);
+    d.text(L"›", Rect{l.step_look.right(), r.y, 16, r.h}, 0, 14, kSemibold, pal.text3, DWRITE_TEXT_ALIGNMENT_CENTER);
+    d.text(L"›", Rect{l.step_break.right(), r.y, 16, r.h}, 0, 14, kSemibold, pal.text3, DWRITE_TEXT_ALIGNMENT_CENTER);
 }
 
 // The quest's progress over the page: one segment per step, and a way to skip or stop without any penalty.
@@ -808,7 +816,7 @@ void draw_practice(Draw& d) {
     const Palette& pal = d.pal;
     const Layout& l = d.l;
     d.card(l.card_a);
-    d.header(l.card_a, L"Practice", L"Pick a program. You'll look inside it first, then try to break it.");
+    d.header(l.card_a, L"Practice", L"Pick a program. Look inside it, try to break it, then fix it.");
     // ---- the levels
     const Progress& pr = d.m.progress;
     for (std::size_t i = 0; i < levels().size() && i < l.level_tabs.size(); ++i) {
@@ -1563,18 +1571,30 @@ void draw_lesson(Draw& d) {
     const Palette& pal = d.pal;
     const Model& m = d.m;
     const Layout& l = d.l;
-    const auto& all = lessons();
     d.card(l.card_a);
     d.card(l.card_b);
-    if (m.lesson < 0 || m.lesson >= static_cast<int>(all.size())) return;
-    const Lesson& ls = all[static_cast<std::size_t>(m.lesson)];
     const Rect& a = l.card_a;
+    if (m.fixing && (m.fix_loading || !m.fix_error.empty())) {   // a bug is being picked, or none could be
+        const Rect c{a.x + 24, a.y + a.h / 2 - 70, a.w - 48, 140};
+        const bool wait = m.fix_loading;
+        d.circle(Rect{c.x, c.y, 44, 44}, wait ? pal.accent : pal.warn);
+        d.glyph(wait ? L'\xE90F' : L'\xE7BA', Rect{c.x, c.y, 44, 44}, 18, pal.dark ? color(0x000000) : color(0xFFFFFF));
+        d.text(wait ? L"Breaking something for you…" : L"No bug to fix here", Rect{c.x, c.y + 56, c.w, 30}, 1, 20, kSemibold, pal.text);
+        d.text(wait ? L"Trying changes until one really breaks the program. This takes a few seconds." : widen(m.fix_error),
+               Rect{c.x, c.y + 88, c.w, 48}, 0, 14, kNormal, pal.text2, DWRITE_TEXT_ALIGNMENT_LEADING, true, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        return;
+    }
+    const Lesson* shown = m.shown_lesson();
+    if (!shown) return;
+    const Lesson& ls = *shown;
 
     // ---- read
-    const std::wstring chip_text = std::format(L"{} LESSON {}  ·  {}", ls.cpp ? L"C++" : L"C", ls.number, widen(course_for(ls.course).name));
+    const std::wstring chip_text = m.fixing ? std::format(L"FIX IT  ·  {}", widen(m.source_name))
+                                            : std::format(L"{} LESSON {}  ·  {}", ls.cpp ? L"C++" : L"C", ls.number, widen(course_for(ls.course).name));
+    const D2D1_COLOR_F chip_hue = m.fixing ? pal.orange : pal.accent;
     const float cw = d.R.measure(chip_text, 0, 10, kSemibold) + 20;
-    d.fill(Rect{a.x + 24, a.y + 20, cw, 20}, 10, alpha(pal.accent, pal.dark ? 0.2f : 0.12f));
-    d.text(chip_text, Rect{a.x + 24, a.y + 20, cw, 20}, 0, 10, kSemibold, pal.accent, DWRITE_TEXT_ALIGNMENT_CENTER);
+    d.fill(Rect{a.x + 24, a.y + 20, cw, 20}, 10, alpha(chip_hue, pal.dark ? 0.2f : 0.12f));
+    d.text(chip_text, Rect{a.x + 24, a.y + 20, cw, 20}, 0, 10, kSemibold, chip_hue, DWRITE_TEXT_ALIGNMENT_CENTER);
     d.text(widen(ls.title), Rect{a.x + 24, a.y + 44, a.w - 48, 32}, 1, 22, kSemibold, pal.text);
     const Rect& area = l.lesson_text;
     d.rt->PushAxisAlignedClip(rf(area), D2D1_ANTIALIAS_MODE_ALIASED);
@@ -1628,7 +1648,10 @@ void draw_lesson(Draw& d) {
 
     // ---- write and run
     const Rect& b = l.card_b;
-    d.header(b, L"Your code", ls.cpp ? L"Real C++, built and run by a real compiler." : L"Real C, built and run by a real compiler.");
+    d.header(b, m.fixing ? L"The broken program" : L"Your code",
+             m.fixing ? L"Change it here, then press Run. Reset brings the broken one back."
+             : ls.cpp ? L"Real C++, built and run by a real compiler."
+                      : L"Real C, built and run by a real compiler.");
     const Rect& ed = l.editor;
     d.fill(ed, 8, editor_fill(pal));
     d.stroke(ed, 8, d.hot(Control::Editor) ? alpha(pal.accent, 0.6f) : pal.card_stroke);
@@ -1658,8 +1681,10 @@ void draw_lesson(Draw& d) {
         mark = L'\xE895';
     } else if (m.lesson_ran && chk.passed) {
         hue = pal.ok;
-        title = L"You did it!";
-        sub = ls.expected.empty() ? L"It builds and runs. Nice work." : L"It prints exactly what it should.";
+        title = m.fixing ? L"Fixed it!" : L"You did it!";
+        sub = m.fixing ? L"It prints exactly what it should again. Bug squashed."
+              : ls.expected.empty() ? L"It builds and runs. Nice work."
+                                    : L"It prints exactly what it should.";
         mark = L'\xE73E';
     } else if (m.lesson_ran && !chk.run.compiled) {
         hue = pal.orange;
@@ -1700,9 +1725,10 @@ void draw_lesson(Draw& d) {
         }
     }
     const Quest& q = m.quest;
-    std::wstring next = L"Next lesson  →";
+    std::wstring next = m.fixing ? L"Fix another bug  →" : L"Next lesson  →";
     if (q.active) next = q.at + 1 >= static_cast<int>(q.steps.size()) ? L"Finish the quest  →" : L"Next step  →";
-    d.button(Control::LessonNext, l.lesson_next, m.lesson_ran && chk.passed ? next : std::wstring(L"Pass the task to go on"), m.lesson_ran && chk.passed, true);
+    d.button(Control::LessonNext, l.lesson_next,
+             m.lesson_ran && chk.passed ? next : std::wstring(m.fixing ? L"Fix the bug to go on" : L"Pass the task to go on"), m.lesson_ran && chk.passed, true);
 }
 
 // ---- a quick quiz card

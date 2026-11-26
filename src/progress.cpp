@@ -108,6 +108,8 @@ const std::vector<Badge>& all_badges() {
         {"lessons10", "Ten lessons", "Pass 10 Write-it lessons.", L"10", false},
         {"quiz5", "Quick thinker", "Get 5 quiz cards right.", L"?", false},
         {"week", "Week warrior", "Play on 4 days in one week.", L"\xE787", true},
+        {"fix1", "Bug fixer", "Fix your first broken program.", L"\xE90F", true},
+        {"fix5", "Repair crew", "Fix 5 broken programs.", L"\xEC7A", true},
     };
     return all;
 }
@@ -164,6 +166,7 @@ Progress load_progress() {
         else if (k == "badge") p.badges.insert(v);
         else if (k == "lesson") p.lessons_done.insert(v);
         else if (k == "quiz") p.quiz_right.insert(v);
+        else if (k == "fixed") p.fixed.insert(v);
         else if (k == "day") p.days.insert(v);
         else if (k == "streak") p.streak = std::atoi(v.c_str());
         else if (k == "best_streak") p.best_streak = std::atoi(v.c_str());
@@ -190,6 +193,7 @@ void save_progress(const Progress& p) {
     for (const std::string& b : p.badges) s << "badge=" << b << "\n";
     for (const std::string& l : p.lessons_done) s << "lesson=" << l << "\n";
     for (const std::string& q : p.quiz_right) s << "quiz=" << q << "\n";
+    for (const std::string& f : p.fixed) s << "fixed=" << f << "\n";
     for (const std::string& d : p.days) s << "day=" << d << "\n";
     std::ofstream(progress_file(), std::ios::binary | std::ios::trunc) << s.str();
 }
@@ -286,6 +290,19 @@ std::vector<Cheer> record_lesson(Progress& p, const std::string& id, bool passed
         add_xp(p, out, first_time ? kXpLesson : kXpLessonAgain);
         earn(p, out, "lesson1");
         if (p.lessons_done.size() >= 10) earn(p, out, "lessons10");
+    }
+    save_progress(p);
+    return out;
+}
+
+std::vector<Cheer> record_fix(Progress& p, const std::string& id, bool passed) {
+    std::vector<Cheer> out;
+    played_today(p, out);
+    if (passed) {
+        const bool first_time = p.fixed.insert(id).second;
+        add_xp(p, out, first_time ? kXpFix : kXpLessonAgain);
+        earn(p, out, "fix1");
+        if (p.fixed.size() >= 5) earn(p, out, "fix5");
     }
     save_progress(p);
     return out;

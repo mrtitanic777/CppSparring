@@ -128,7 +128,7 @@ bool lesson_reads_input(const Lesson& l) { return reads_input(l.starter) || read
 
 LessonCheck check_lesson(const Lesson& l, const std::string& code, const std::string& input) {
     LessonCheck c;
-    c.run = compile_and_run_lesson(code, l.cpp, input);
+    c.run = l.path.empty() ? compile_and_run_lesson(code, l.cpp, input) : compile_and_run_string(code, l.path, input);
     // with nothing to compare against, the learner must at least have written something
     const bool wrote = normalize_output(code) != normalize_output(l.starter);
     c.passed = c.run.compiled && !c.run.crashed && !c.run.timed_out &&

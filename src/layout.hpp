@@ -35,7 +35,7 @@ enum class Control {
     None, CaptionMinimize, CaptionMaximize, CaptionClose, SoundToggle,
     NavHome, NavPractice, NavLearn, NavBadges,
     HeroQuest, DoorPractice, DoorLessons, DoorBadges,
-    SessionBack, StepLook, StepBreak,
+    SessionBack, StepLook, StepBreak, StepFix,
     LevelTab, Example, OpenFile,
     CodeView, LookRow, LookList, NextStep, Watch,
     ReplayBack, ReplayPlay, ReplayNext, ReplayBar, ReplayStop,
@@ -127,6 +127,7 @@ struct Progress {
     int guesses = 0, correct = 0;
     std::set<std::string> lessons_done;       // lesson ids passed
     std::set<std::string> quiz_right;         // quiz card ids answered right
+    std::set<std::string> fixed;              // Fix it puzzles fixed (fix_key)
     std::set<std::string> days;               // "2026-11-24": days something was done
     int xp = 0;
     int quests_done = 0;
@@ -143,11 +144,11 @@ struct Cheer {
 };
 
 // ---- the Daily Quest: a few short, mixed steps with a clear end (quest.hpp makes them)
-enum class StepKind { Quiz, Guess, Write };
+enum class StepKind { Quiz, Guess, Write, Fix };
 struct QuestStep {
     StepKind kind = StepKind::Quiz;
     int quiz = -1;        // Quiz: a card of quiz_cards()
-    int example = -1;     // Guess: an example program
+    int example = -1;     // Guess and Fix: an example program
     int challenge = -1;   // Guess: which challenge, chosen once the program is read
     int lesson = -1;      // Write: a lesson of lessons()
     bool done = false, skipped = false, right = false;
@@ -234,6 +235,18 @@ struct Model {
     LessonCheck lesson_check;
     bool native_editor = false;      // the real edit box is on screen (not in a screenshot)
 
+    // Fix it: the open program, broken, to repair on the lesson page
+    bool fixing = false;             // the lesson page shows `fix`, not a lesson of lessons()
+    bool fix_loading = false;        // a bug is being picked (the program and its changes are being run)
+    std::string fix_error;
+    Lesson fix;
+
+    // The lesson on the lesson page: a Fix it puzzle or one of lessons(); none while a puzzle is being made.
+    const Lesson* shown_lesson() const {
+        if (fixing) return fix_loading || !fix_error.empty() ? nullptr : &fix;
+        return lesson >= 0 && lesson < static_cast<int>(lessons().size()) ? &lessons()[static_cast<std::size_t>(lesson)] : nullptr;
+    }
+
     // a quiz card
     int quiz = -1;
     int quiz_choice = -1;            // the shown position picked, -1 before answering
@@ -269,7 +282,7 @@ struct Layout {
     // the quest's bar over the page while a quest runs
     Rect quest_bar, quest_skip, quest_quit;
     // inside a program or a lesson (not in a quest): back, where you are, and the program's Look / Break steps
-    Rect session_bar, session_back, step_look, step_break;
+    Rect session_bar, session_back, step_look, step_break, step_fix;
     Rect status_bar, status_dot, status_text, status_right;
     Rect toast;
 

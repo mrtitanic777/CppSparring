@@ -21,6 +21,7 @@ struct Lesson {
     std::string expected;                    // empty: it only has to build and run (and be changed)
     std::string input;                       // what to type when it asks (the answers box starts with this)
     int course = 1;
+    std::string path;                        // a Fix it puzzle: the program it came from (it is built as if it were that file)
 };
 
 struct Course {

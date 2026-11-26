@@ -25,6 +25,8 @@ add_executable(cppsparring WIN32
     src/examples.hpp
     src/explain.cpp
     src/explain.hpp
+    src/fix.cpp
+    src/fix.hpp
     src/progress.cpp
     src/progress.hpp
     src/replay.cpp

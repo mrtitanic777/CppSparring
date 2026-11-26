@@ -3,7 +3,7 @@
 
 namespace sparring {
 
-// Builds today's quest: quiz, guess, write, guess, quiz (about five minutes, with a clear finish line). Every third quest is a
+// Builds today's quest: quiz, guess, write, fix, quiz (about five minutes, with a clear finish line). Every third quest is a
 // Bug Boss instead: five quick guesses, each right one knocks the bug back, right answers in a row make a combo.
 Quest make_quest(const Progress& p);
 

@@ -55,9 +55,10 @@ Layout compute_layout(const Model& m, float width, float height) {
         // back to where it came from, and for a program its two steps
         l.session_bar = {left, top, wide, 44};
         l.session_back = {l.session_bar.x + 6, l.session_bar.y + 6, 96, 32};
-        if (m.page != Page::Lesson) {
-            l.step_break = {l.session_bar.right() - 6 - 128, l.session_bar.y + 6, 128, 32};
-            l.step_look = {l.step_break.x - 8 - 128, l.session_bar.y + 6, 128, 32};
+        if (m.page != Page::Lesson || m.fixing) {
+            l.step_fix = {l.session_bar.right() - 6 - 120, l.session_bar.y + 6, 120, 32};
+            l.step_break = {l.step_fix.x - 16 - 120, l.session_bar.y + 6, 120, 32};
+            l.step_look = {l.step_break.x - 16 - 128, l.session_bar.y + 6, 128, 32};
         }
         top += 52;
     }

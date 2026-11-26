@@ -40,6 +40,9 @@ std::vector<Cheer> record_guess(Progress& p, const std::string& file, const Muta
 std::vector<Cheer> record_watch(Progress& p);
 // A lesson's code was run; passed or not.
 std::vector<Cheer> record_lesson(Progress& p, const std::string& id, bool passed);
+// A Fix it puzzle was run; fixed or not.
+std::vector<Cheer> record_fix(Progress& p, const std::string& id, bool passed);
+
 // A quiz card was answered.
 std::vector<Cheer> record_quiz(Progress& p, const std::string& id, bool right);
 // A quest was finished (a Bug Boss quest, beaten or not), with the treasure chest's XP.
@@ -60,6 +63,6 @@ std::vector<std::string> this_week();   // Monday..Sunday as "YYYY-MM-DD"
 int days_this_week(const Progress& p);
 
 // What each thing is worth.
-constexpr int kXpRight = 10, kXpTried = 3, kXpLesson = 15, kXpLessonAgain = 5, kXpQuizRight = 5, kXpQuizTried = 1, kXpQuest = 20, kXpBoss = 50;
+constexpr int kXpRight = 10, kXpTried = 3, kXpLesson = 15, kXpLessonAgain = 5, kXpQuizRight = 5, kXpQuizTried = 1, kXpFix = 15, kXpQuest = 20, kXpBoss = 50;
 
 }  // namespace sparring
