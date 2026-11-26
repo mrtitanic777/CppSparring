@@ -1,0 +1,16 @@
+{
+  "title": "Lists (vector)",
+  "language": "cpp",
+  "course": 12,
+  "number": 13,
+  "instructions": [
+    "A vector is a list of boxes, all of the same type. std::vector<int> scores{3, 7, 5}; makes a list of three whole numbers.",
+    "It needs #include <vector>.",
+    "scores.push_back(9); adds a new box to the end of the list.",
+    "scores.size() tells you how many boxes are in the list right now."
+  ],
+  "task": "Add 9 to the end of the list, so the program prints:  4 scores",
+  "starter_code": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> scores{3, 7, 5};\n    // add 9 to the end of scores here\n\n    std::cout << scores.size() << \" scores\\n\";\n    return 0;\n}\n",
+  "hint": "push_back adds to the end:\n\n    scores.push_back(9);",
+  "expected_output": "4 scores"
+}

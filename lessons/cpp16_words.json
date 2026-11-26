@@ -1,0 +1,15 @@
+{
+  "title": "Words (string)",
+  "language": "cpp",
+  "course": 12,
+  "number": 16,
+  "instructions": [
+    "std::string holds text, like a name. It needs #include <string>.",
+    "+ glues two pieces of text together: \"Hi \" + name.",
+    "name.size() tells you how many letters it has."
+  ],
+  "task": "Make the program print:  Hello, Sam! Your name has 3 letters.",
+  "starter_code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string name = \"Sam\";\n    std::string greeting = \"Hello, \" + name + \"!\";\n    // print greeting, then \" Your name has \", the size of name, and \" letters.\"\n\n    return 0;\n}\n",
+  "hint": "Print the pieces one after another:\n\n    std::cout << greeting << \" Your name has \" << name.size() << \" letters.\\n\";",
+  "expected_output": "Hello, Sam! Your name has 3 letters."
+}

@@ -1,0 +1,15 @@
+{
+  "title": "Counting from zero",
+  "language": "cpp",
+  "course": 12,
+  "number": 15,
+  "instructions": [
+    "Each box in a list has a number, called its index. The first box is number 0, not 1!",
+    "scores[0] is the first box. In a list of 3, the boxes are 0, 1 and 2.",
+    "So the last box is scores[scores.size() - 1]. Asking for scores[3] in a list of 3 goes past the end: a classic bug."
+  ],
+  "task": "Print the first and the last score, so the program prints:  First: 3 Last: 5  (each on its own line)",
+  "starter_code": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> scores{3, 7, 5};\n    std::cout << \"First: \" << scores[0] << \"\\n\";\n    // print \"Last: \" and the last score here\n\n    return 0;\n}\n",
+  "hint": "The last index is one less than the size:\n\n    std::cout << \"Last: \" << scores[scores.size() - 1] << \"\\n\";",
+  "expected_output": "First: 3\nLast: 5"
+}

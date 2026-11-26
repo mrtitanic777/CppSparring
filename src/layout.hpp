@@ -273,7 +273,7 @@ struct Layout {
     std::array<Rect, 3> doors{};
     // Practice: the programs by level
     Rect examples_label, tiles_area;
-    std::array<Rect, 4> level_tabs{};
+    std::array<Rect, 5> level_tabs{};
     std::vector<Rect> examples;
     std::vector<std::size_t> example_items;   // which example each tile shows
     Rect drop_area, open_button;

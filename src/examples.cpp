@@ -11,6 +11,7 @@ const std::vector<Level>& levels() {
         {2, "Jobs", "Jobs (functions) do one thing when you ask them to."},
         {3, "Loops", "Loops do the same thing again and again."},
         {4, "Blueprints", "Blueprints (structs) bundle boxes together into one thing."},
+        {5, "Lists & games", "Lists (vectors) hold many values; strings hold words."},
     };
     return all;
 }
@@ -221,6 +222,56 @@ int main() {
     return 0;
 }
 )"},
+        // ---- level 5: lists and games
+        {5, "high_scores.cpp", "High scores", "Finds the best score in a list.", L'\xE735',
+         R"(#include <iostream>
+#include <vector>
+
+int main() {
+    std::vector<int> scores{12, 30, 25};
+    int best = 0;
+    for (int s : scores) {
+        if (s > best) {
+            best = s;
+        }
+    }
+    std::cout << scores.size() << " scores, the best is " << best << "\n";
+    return 0;
+}
+)"},
+        {5, "word_shout.cpp", "Word shout", "Makes a word louder with exclamation marks.", L'\xE767',
+         R"(#include <iostream>
+#include <string>
+
+int main() {
+    std::string word = "hello";
+    std::string shout = word + "!!!";
+    std::cout << shout << "\n";
+    std::cout << "That is " << shout.size() << " letters long\n";
+    return 0;
+}
+)"},
+        {5, "rock_paper_scissors.cpp", "Rock paper scissors", "You type a move. The computer always picks scissors.", L'\xE7FC',
+         R"(#include <iostream>
+#include <string>
+
+int main() {
+    std::string you;
+    std::string computer = "scissors";
+    std::cout << "Your move? ";
+    std::cin >> you;
+    std::cout << "Computer picks " << computer << "\n";
+    if (you == computer) {
+        std::cout << "A tie!\n";
+    } else if (you == "rock" && computer == "scissors") {
+        std::cout << "You win!\n";
+    } else {
+        std::cout << "Computer wins!\n";
+    }
+    return 0;
+}
+)",
+         "rock\n"},
     };
     return all;
 }

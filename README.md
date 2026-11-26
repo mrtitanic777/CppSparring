@@ -19,10 +19,10 @@ really compiling and running the code.
   guess, another quiz card. A treasure chest at the end.
 - **Bug Boss**: every third quest. Five quick guesses; each right one knocks it back, and right answers in a row build a combo. The
   timer is off unless you switch it on.
-- **Practice**: twelve programs in four levels (boxes, jobs, loops, blueprints). Look inside a program first, with every part
+- **Practice**: fifteen programs in five levels (boxes, jobs, loops, blueprints, lists and games). Look inside a program first, with every part
   explained in plain words, then try to break it.
 - **Watch it run**: step through a program line by line and see every box (variable) change.
-- **Lessons**: 12 C++ lessons and 39 C lessons where you write the code yourself and the compiler checks what it prints. The C
+- **Lessons**: 18 C++ lessons (up to vectors, strings and rock-paper-scissors) and 39 C lessons where you write the code yourself and the compiler checks what it prints. The C
   lessons come from [CodingTeacher](https://github.com/mrtitanic777/CodingTeacher).
 - **Badges, stars, XP and ranks**, a gentle weekly goal (four days a week, never a broken streak), soft sounds with a mute button,
   confetti, and light and dark themes that follow Windows.
@@ -81,6 +81,9 @@ Lessons are `.json` files in the `lessons` folder, so you can edit them or add y
 
 Leave out `language` for C. `input` is what the program reads when it asks you to type (one answer per line). Without
 `expected_output`, the lesson passes once the code builds, runs and has been changed.
+
+The C++ lessons are written by `tools/make_cpp_lessons.py` (`python tools/make_cpp_lessons.py lessons check`), which also writes
+each lesson's worked solution into `check` so it can be compiled and compared with the expected output.
 
 ## For developers
 

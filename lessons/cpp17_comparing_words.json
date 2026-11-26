@@ -1,0 +1,16 @@
+{
+  "title": "Comparing words",
+  "language": "cpp",
+  "course": 12,
+  "number": 17,
+  "instructions": [
+    "std::cin >> name; reads one word that the person types.",
+    "== asks if two pieces of text are exactly the same. \"Max\" and \"max\" are different: capital letters count!",
+    "The answers box starts with Max. Try another name too."
+  ],
+  "task": "Finish the if, so typing Max prints:  Hi Max, welcome back!",
+  "starter_code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string name;\n    std::cout << \"Name? \";\n    std::cin >> name;\n    if (/* is name Max? */) {\n        std::cout << \"Hi Max, welcome back!\\n\";\n    } else {\n        std::cout << \"Nice to meet you, \" << name << \"!\\n\";\n    }\n    return 0;\n}\n",
+  "hint": "Two equals signs ask the question:\n\n    if (name == \"Max\") {",
+  "expected_output": "Name? Max\nHi Max, welcome back!",
+  "input": "Max"
+}

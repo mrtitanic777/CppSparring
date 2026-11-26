@@ -47,6 +47,13 @@ const std::vector<QuizCard>& quiz_cards() {
          "A struct bundles boxes together. A Pet can hold a name and a hunger number at the same time."},
         {"main", "Where does every C and C++ program start running?", nullptr, {"In main", "On the first line of the file", "In the last job", "At #include"},
          "The computer always starts at main, no matter where it sits in the file."},
+        // ---- lists, words and games
+        {"size", "What does this print?", "std::vector<int> v{4, 8, 15};\nv.push_back(16);\nstd::cout << v.size();", {"4", "3", "16", "43"},
+         "The list starts with 3 boxes and push_back adds one more, so size() is 4."},
+        {"index0", "What is v[1]?", "std::vector<int> v{4, 8, 15};", {"8", "4", "15", "Nothing, there is no box 1"},
+         "Boxes are counted from 0. v[0] is 4, v[1] is 8 and v[2] is 15."},
+        {"capital", "Is \"Max\" == \"max\" true?", nullptr, {"No, capital letters count", "Yes, they are the same name", "Only in C", "It won't build"},
+         "== checks that the text is exactly the same, letter for letter. M and m are different letters to the computer."},
     };
     return all;
 }

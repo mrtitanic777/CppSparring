@@ -1761,9 +1761,29 @@ int self_test(const std::wstring& log_path) {
     click(Control::ReplayStop);
     check("Stop watching returns to Look", m.page == Page::Look && !m.replay_open);
 
+    // ---- a change that doesn't build: == turned into = on text
+    check("Level 5 has three programs", examples_in_level(5).size() == 3);
+    click(Control::NavPractice);
+    click(Control::LevelTab, 4);
+    int rps_tile = -1;
+    for (std::size_t i = 0; i < a.layout.example_items.size(); ++i)
+        if (std::string(examples()[a.layout.example_items[i]].file) == "rock_paper_scissors.cpp") rps_tile = static_cast<int>(i);
+    click(Control::Example, rps_tile);
+    check("Rock paper scissors is read", rps_tile >= 0 && pump([&] { return !m.importing && !m.challenges.empty(); }, 90000));
+    int eq = -1;
+    for (std::size_t i = 0; i < m.toggles.size(); ++i)
+        if (m.toggles[i].rule == Rule::EqToAssign && eq < 0) eq = static_cast<int>(i);
+    check("it offers to turn == into =", eq >= 0);
+    click(Control::StepBreak);
+    m.current = std::max(0, eq);
+    click(Control::Guess, static_cast<int>(Outcome::WontBuild));
+    check("turning == into = on text really doesn't build", pump(ran, 90000) &&
+                                                               m.challenges[static_cast<std::size_t>(m.current)].truth == static_cast<int>(Outcome::WontBuild));
+    check("the typed move reaches the program", m.original.output.find("You win!") != std::string::npos);
+
     // ---- the other places
     click(Control::NavLearn);
-    check("Lessons lists every lesson", m.page == Page::Lessons && a.layout.lesson_tiles.size() == lessons().size() && lessons().size() >= 51);
+    check("Lessons lists every lesson", m.page == Page::Lessons && a.layout.lesson_tiles.size() == lessons().size() && lessons().size() >= 57);
     click(Control::LessonTile, 0);
     check("a lesson tile opens that lesson", m.page == Page::Lesson);
     click(Control::SessionBack);

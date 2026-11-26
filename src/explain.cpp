@@ -20,6 +20,10 @@ std::string trim(std::string s) {
 std::string friendly_type(std::string t) {
     for (const char* junk : {"const ", "std::", "struct ", "class ", "&"}) erase_all(t, junk);
     t = trim(t);
+    if (t.rfind("vector<", 0) == 0 && t.back() == '>') {
+        const std::string inner = friendly_type(t.substr(7, t.size() - 8));
+        return "a list, where each box holds " + inner;
+    }
     if (t == "int" || t == "long" || t == "short" || t == "unsigned int" || t == "size_t") return "a whole number";
     if (t == "double" || t == "float") return "a decimal number";
     if (t == "bool") return "a yes-or-no answer";
@@ -168,6 +172,27 @@ std::string plain_error(const std::string& out) {
         line = out.substr(0, out.find('\n'));
     }
     while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
+    // the most common complaints, said the way a beginner would say them
+    auto quoted = [&](std::size_t from) {
+        const std::size_t a = line.find('\'', from);
+        const std::size_t b = a == std::string::npos ? a : line.find('\'', a + 1);
+        return b == std::string::npos ? std::string() : line.substr(a + 1, b - a - 1);
+    };
+    const struct {
+        const char* says;
+        const char* means;
+    } plain[] = {
+        {"invalid operands to binary expression", "That sign can't be used with these kinds of values."},
+        {"contextually convertible to 'bool'", "That isn't a yes-or-no question, so the if can't use it."},
+        {"no viable conversion", "Those two kinds of values don't fit together."},
+        {"expected ';'", "A semicolon ; is missing."},
+        {"no matching function for call", "That job doesn't take what was given to it."},
+        {"non-void function does not return a value", "This job has no return, so it never hands back an answer."},
+    };
+    for (const auto& p : plain)
+        if (line.find(p.says) != std::string::npos) return p.means;
+    if (line.find("use of undeclared identifier") != std::string::npos) return "There's no box or job called " + quoted(0) + ".";
+    if (line.find("const-qualified type") != std::string::npos) return quoted(0) + " is const, so it can't be changed.";
     if (line.size() > 160) line = line.substr(0, 157) + "...";
     return line;
 }

@@ -101,6 +101,7 @@ const std::vector<Badge>& all_badges() {
         {"perfect", "Perfect score", "Get all 3 stars on a program.", L"\xE735", true},
         {"level2", "Level up", "Open Level 2.", L"2", false},
         {"level4", "Blueprint builder", "Open Level 4.", L"4", false},
+        {"level5", "Game maker", "Open Level 5.", L"5", false},
         {"quest1", "Quester", "Finish a Daily Quest.", L"\xE7C1", true},
         {"boss", "Boss beater", "Beat a Bug Boss.", L"\xEBE8", true},
         {"lesson1", "Code writer", "Pass your first Write-it lesson.", L"\xE70F", true},
@@ -264,6 +265,7 @@ std::vector<Cheer> record_guess(Progress& p, const std::string& file, const Muta
                             std::to_wstring(l.number), false});
         if (l.number == 2) earn(p, out, "level2");
         if (l.number == 4) earn(p, out, "level4");
+        if (l.number == 5) earn(p, out, "level5");
     }
     save_progress(p);
     return out;

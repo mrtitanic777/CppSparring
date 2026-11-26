@@ -1,0 +1,16 @@
+{
+  "title": "Rock, paper, scissors",
+  "language": "cpp",
+  "course": 12,
+  "number": 18,
+  "instructions": [
+    "Now put it together: read a move, compare words, and choose what to print.",
+    "&& means 'and': both questions must be true. (you == \"rock\" && computer == \"scissors\") is a win.",
+    "The computer always picks scissors here, so you can test it. The answers box starts with rock."
+  ],
+  "task": "Finish the winning check, so typing rock prints the computer's move and then:  You win!",
+  "starter_code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string you;\n    std::string computer = \"scissors\";\n    std::cout << \"Your move? \";\n    std::cin >> you;\n    std::cout << \"Computer picks \" << computer << \"\\n\";\n    if (you == computer) {\n        std::cout << \"A tie!\\n\";\n    } else if (/* you rock AND computer scissors */) {\n        std::cout << \"You win!\\n\";\n    } else {\n        std::cout << \"Computer wins!\\n\";\n    }\n    return 0;\n}\n",
+  "hint": "Both must be true, so use &&:\n\n    } else if (you == \"rock\" && computer == \"scissors\") {",
+  "expected_output": "Your move? rock\nComputer picks scissors\nYou win!",
+  "input": "rock"
+}

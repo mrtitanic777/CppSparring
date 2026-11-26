@@ -162,7 +162,12 @@ std::vector<MutationToggle> generate_mutations(const std::vector<AstNode>& nodes
     for (int i = 0; i < static_cast<int>(nodes.size()); ++i) {
         const AstNode& n = nodes[static_cast<std::size_t>(i)];
         if (n.kind == "FunctionDecl" || n.kind == "CXXMethodDecl" || n.kind == "CXXConstructorDecl") function = n.name;
-        if (n.kind == "BinaryOperator") {
+        // an operator between two values; on text and lists it is an overloaded one ("==" on two strings), the same to the learner
+        const bool op = n.kind == "BinaryOperator" || n.kind == "CXXOperatorCallExpr";
+        const bool compound = n.kind == "CompoundAssignOperator" ||
+                              (n.kind == "CXXOperatorCallExpr" && n.name.size() == 2 && n.name[1] == '=' && n.name != "==" && n.name != "!=" &&
+                               n.name != "<=" && n.name != ">=");
+        if (op) {
             for (const Swap& sw : kSwaps) {
                 if (n.name != sw.from || find_code(line_text(n.line), std::string(" ") + sw.from + " ") == std::string::npos) continue;
                 const std::size_t before = toggles.size();
@@ -174,9 +179,9 @@ std::vector<MutationToggle> generate_mutations(const std::vector<AstNode>& nodes
             }
         }
         // a line that only changes a box: "age = age + 1;" or "total += i;"
-        if ((n.kind == "BinaryOperator" && n.name == "=") || n.kind == "CompoundAssignOperator") {
+        if ((op && n.name == "=") || compound) {
             const std::string s = trim(line_text(n.line));
-            const std::size_t eq = find_code(s, n.kind == "BinaryOperator" ? " = " : " " + n.name + " ");
+            const std::size_t eq = find_code(s, n.name == "=" ? " = " : " " + n.name + " ");
             if (eq != std::string::npos && !s.empty() && s.back() == ';' && (std::isalpha(static_cast<unsigned char>(s[0])) || s[0] == '_') &&
                 s.find('(') == std::string::npos) {
                 const std::string target = trim(s.substr(0, eq));
@@ -200,7 +205,7 @@ std::vector<MutationToggle> generate_mutations(const std::vector<AstNode>& nodes
             add(toggles, seen, Rule::RemoveIgnore, n, i, n.name, "Delete cin.ignore()",
                 "cin.ignore() throws away the leftover Enter key after you type something. We are deleting it.");
         }
-        if (n.kind == "BinaryOperator" && n.name == "==") {
+        if (op && n.name == "==") {
             add(toggles, seen, Rule::EqToAssign, n, i, n.name, "Change == into =",
                 "== asks a question: are these two the same? A single = doesn't ask anything. It copies the right side into the left box (read it right to left).");
         }

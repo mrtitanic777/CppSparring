@@ -5,6 +5,7 @@
 
 #include "examples.hpp"
 #include "lessons.hpp"
+#include "progress.hpp"
 #include "quiz.hpp"
 
 namespace sparring {
@@ -86,8 +87,9 @@ Layout compute_layout(const Model& m, float width, float height) {
     case Page::Practice: {
         l.card_a = c;
         const float inner = std::max(0.0f, c.w - 48);
-        const float tab_w = std::max(0.0f, (inner - 3 * 8) / 4);
-        for (int i = 0; i < 4; ++i) l.level_tabs[static_cast<std::size_t>(i)] = {c.x + 24 + static_cast<float>(i) * (tab_w + 8), c.y + 84, tab_w, 40};
+        const int tabs = static_cast<int>(std::min(levels().size(), l.level_tabs.size()));
+        const float tab_w = std::max(0.0f, (inner - static_cast<float>(tabs - 1) * 8) / static_cast<float>(tabs));
+        for (int i = 0; i < tabs; ++i) l.level_tabs[static_cast<std::size_t>(i)] = {c.x + 24 + static_cast<float>(i) * (tab_w + 8), c.y + 84, tab_w, 40};
         l.examples_label = {c.x + 24, l.level_tabs[0].bottom() + 14, inner, 22};
         constexpr float drop_h = 80;
         const float ty = l.examples_label.bottom() + 10;
@@ -181,8 +183,9 @@ Layout compute_layout(const Model& m, float width, float height) {
         const float sw = std::max(0.0f, (c.w - 48 - 3 * 12) / 4);
         for (int i = 0; i < 4; ++i) l.stats[static_cast<std::size_t>(i)] = {c.x + 24 + static_cast<float>(i) * (sw + 12), c.y + 88, sw, 76};
         const float gy = c.y + 88 + 76 + 20;
-        constexpr int cols = 4, count = 18;
-        constexpr int rows = (count + cols - 1) / cols;
+        constexpr int cols = 4;
+        const int count = static_cast<int>(all_badges().size());
+        const int rows = (count + cols - 1) / cols;
         const float bw = std::max(0.0f, (c.w - 48 - (cols - 1) * 10) / cols);
         const float bh = std::clamp((c.bottom() - 20 - gy - (rows - 1) * 10) / rows, 58.0f, 110.0f);
         for (int i = 0; i < count; ++i)

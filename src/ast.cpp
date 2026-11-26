@@ -134,7 +134,20 @@ bool is_decl(const std::string& k) {
 
 bool is_kept(const std::string& k) {
     return is_decl(k) || k == "ReturnStmt" || k == "CallExpr" || k == "DeclRefExpr" || k == "MemberExpr" || k == "BinaryOperator" ||
-           k == "CompoundAssignOperator" || k == "ForStmt" || k == "WhileStmt" || k == "IfStmt";
+           k == "CompoundAssignOperator" || k == "CXXOperatorCallExpr" || k == "ForStmt" || k == "WhileStmt" || k == "IfStmt";
+}
+
+// The operator an overloaded-operator call uses ("==" for two strings): the "operator==" it refers to, a few levels down.
+std::string operator_of(const JValue& n, int depth = 0) {
+    if (n.type != JType::Object || depth > 3) return {};
+    if (const JValue* ref = n.find("referencedDecl")) {
+        const std::string name = ref->text("name");
+        if (name.rfind("operator", 0) == 0) return name.substr(8);
+    }
+    if (const JValue* inner = n.find("inner"))
+        for (const JValue& c : inner->arr)
+            if (std::string op = operator_of(c, depth + 1); !op.empty()) return op;
+    return {};
 }
 
 bool is_scope(const std::string& k) {
@@ -185,6 +198,7 @@ struct Walker {
             if (is_decl(kind)) a.id = n.text("id");
             a.name = n.text("name");
             if (kind == "BinaryOperator") a.name = n.text("opcode");
+            if (kind == "CXXOperatorCallExpr") a.name = operator_of(n);
             if (const JValue* ref = n.find("referencedDecl")) {
                 a.ref_id = ref->text("id");
                 if (a.name.empty()) a.name = ref->text("name");

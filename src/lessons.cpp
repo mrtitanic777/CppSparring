@@ -77,6 +77,7 @@ std::vector<Lesson> load() {
 const std::vector<Course>& courses() {
     static const std::vector<Course> all = {
         {10, "C++ 1", "C++: first steps"},     {11, "C++ 2", "C++: jobs, references and blueprints"},
+        {12, "C++ 3", "C++: lists, words and games"},
         {1, "C 1", "C: getting started"},      {2, "C 2", "C: boxes and math"},
         {3, "C 3", "C: choices and loops"},    {4, "C 4", "C: lists and words"},
         {5, "C 5", "C: pointers and memory"},  {6, "C 6", "C: jobs and blueprints"},

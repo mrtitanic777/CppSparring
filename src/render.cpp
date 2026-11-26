@@ -832,7 +832,7 @@ void draw_practice(Draw& d) {
             d.text(std::format(L"{}/{}", got, most), Rect{r.right() - 40, r.y, 32, r.h}, 1, 11, kSemibold, pal.text2);
         }
     }
-    const Level& level = levels()[static_cast<std::size_t>(std::clamp(d.m.pick_level, 1, 4) - 1)];
+    const Level& level = levels()[static_cast<std::size_t>(std::clamp(d.m.pick_level, 1, static_cast<int>(levels().size())) - 1)];
     const std::wstring lname = std::format(L"Level {}: {}", level.number, widen(level.name));
     const float lw = d.R.measure(lname, 1, 15, kSemibold);
     d.text(lname, Rect{l.examples_label.x, l.examples_label.y, lw + 4, l.examples_label.h}, 1, 15, kSemibold, pal.text);
