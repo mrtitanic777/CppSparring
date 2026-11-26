@@ -1,0 +1,16 @@
+{
+  "title": "Give every box a first value",
+  "language": "cpp",
+  "course": 13,
+  "number": 19,
+  "instructions": [
+    "int total; makes a box but puts nothing in it. It still holds something: junk left over in the computer's memory.",
+    "Adding to junk gives more junk. Run it and look at the strange number it prints!",
+    "int total = 0; makes the box and puts 0 in it straight away. Always give a box a first value."
+  ],
+  "task": "Fix the total so the program prints:  We ate 14 slices",
+  "starter_code": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> slices{3, 5, 2, 4};\n    int total;\n    for (int s : slices) {\n        total += s;\n    }\n    std::cout << \"We ate \" << total << \" slices\\n\";\n    return 0;\n}\n",
+  "hint": "Start the box at 0:\n\n    int total = 0;",
+  "expected_output": "We ate 14 slices",
+  "practice": "pizza_party.cpp"
+}

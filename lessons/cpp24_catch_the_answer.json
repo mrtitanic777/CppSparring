@@ -1,0 +1,16 @@
+{
+  "title": "Catch the answer",
+  "language": "cpp",
+  "course": 13,
+  "number": 24,
+  "instructions": [
+    "return hands an answer back. But someone has to catch it!",
+    "double_it(score); works out the answer and then drops it. score stays the same.",
+    "score = double_it(score); catches the answer and puts it in the box."
+  ],
+  "task": "The score should go from 4 to 8. Fix it so the program prints:  Score: 8",
+  "starter_code": "#include <iostream>\n\nint double_it(int n) {\n    return n * 2;\n}\n\nint main() {\n    int score = 4;\n    double_it(score);\n    std::cout << \"Score: \" << score << \"\\n\";\n    return 0;\n}\n",
+  "hint": "Put the answer back in the box:\n\n    score = double_it(score);",
+  "expected_output": "Score: 8",
+  "practice": "double_it.cpp"
+}

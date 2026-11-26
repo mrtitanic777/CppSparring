@@ -10,9 +10,18 @@ INC = "#include <iostream>\n"
 
 L = []
 
-def lesson(n, slug, course, title, instructions, task, starter, hint, expected, solution, inp=""):
+def lesson(n, slug, course, title, instructions, task, starter, hint, expected, solution, inp="", practice=""):
     L.append(dict(n=n, slug=slug, course=course, title=title, instructions=instructions, task=task,
-                  starter=starter, hint=hint, expected=expected, solution=solution, input=inp))
+                  starter=starter, hint=hint, expected=expected, solution=solution, input=inp, practice=practice))
+
+# A lesson about a kind of bug: the starter has the bug, and the fix swaps `bad` for `good`.
+def bug_lesson(n, slug, title, instructions, task, starter, bad, good, hint, expected, practice):
+    assert starter.count(bad) == 1
+    lesson(n, slug, 13, title, instructions, task, starter, hint + "\n\n" + starter_line(starter.replace(bad, good), good),
+           expected, starter.replace(bad, good), practice=practice)
+
+def starter_line(code, part):
+    return next(line for line in code.split("\n") if part in line)
 
 lesson(1, "hello", 10, "Hello, C++",
        ["Every C++ program starts in main. The computer runs the lines inside its { } from top to bottom.",
@@ -118,7 +127,8 @@ lesson(2, "references", 11, "The real box (&)",
        INC + "\nvoid double_it(int n) {\n    n = n * 2;\n}\n\nint main() {\n    int x = 4;\n    std::cout << \"Before: \" << x << \"\\n\";\n    double_it(x);\n    std::cout << \"After: \" << x << \"\\n\";\n    return 0;\n}\n",
        "Give the job the real box by adding &:\n\n    void double_it(int& n) {",
        "Before: 4\nAfter: 8",
-       INC + "\nvoid double_it(int& n) {\n    n = n * 2;\n}\n\nint main() {\n    int x = 4;\n    std::cout << \"Before: \" << x << \"\\n\";\n    double_it(x);\n    std::cout << \"After: \" << x << \"\\n\";\n    return 0;\n}\n")
+       INC + "\nvoid double_it(int& n) {\n    n = n * 2;\n}\n\nint main() {\n    int x = 4;\n    std::cout << \"Before: \" << x << \"\\n\";\n    double_it(x);\n    std::cout << \"After: \" << x << \"\\n\";\n    return 0;\n}\n",
+       practice="piggy_bank.cpp")
 
 lesson(3, "const", 11, "Promises (const)",
        ["const in front of a box is a promise: this box will never change.",
@@ -206,7 +216,56 @@ lesson(6, "rock_paper_scissors", 12, "Rock, paper, scissors",
        STR + "\nint main() {\n    std::string you;\n    std::string computer = \"scissors\";\n    std::cout << \"Your move? \";\n    std::cin >> you;\n    std::cout << \"Computer picks \" << computer << \"\\n\";\n    if (you == computer) {\n        std::cout << \"A tie!\\n\";\n    } else if (you == \"rock\" && computer == \"scissors\") {\n        std::cout << \"You win!\\n\";\n    } else {\n        std::cout << \"Computer wins!\\n\";\n    }\n    return 0;\n}\n",
        "rock")
 
-track_number = {10: 0, 11: 8, 12: 12}
+# ---- C++ 4: bugs to watch for (one for each kind of bug Practice and Fix it use; "practice" is a program that has it)
+bug_lesson(1, "first_value", "Give every box a first value",
+           ["int total; makes a box but puts nothing in it. It still holds something: junk left over in the computer's memory.",
+            "Adding to junk gives more junk. Run it and look at the strange number it prints!",
+            "int total = 0; makes the box and puts 0 in it straight away. Always give a box a first value."],
+           "Fix the total so the program prints:  We ate 14 slices",
+           VEC + "\nint main() {\n    std::vector<int> slices{3, 5, 2, 4};\n    int total;\n    for (int s : slices) {\n        total += s;\n    }\n    std::cout << \"We ate \" << total << \" slices\\n\";\n    return 0;\n}\n",
+           "int total;", "int total = 0;", "Start the box at 0:", "We ate 14 slices", "pizza_party.cpp")
+
+bug_lesson(2, "whole_numbers", "Why 7 / 2 is 3",
+           ["When you divide a whole number by a whole number, C++ gives back a whole number. It throws away the part after the dot, so 7 / 2 is 3.",
+            "If one of them is a decimal, like 2.0, the answer is a decimal too: 7 / 2.0 is 3.5.",
+            "Putting the answer in a double box is not enough. The dividing already happened with whole numbers!"],
+           "14 slices shared by 4 people should be 3.5 each. Fix it so the program prints:  That is 3.5 slices each",
+           INC + "\nint main() {\n    int total = 14;\n    double each = total / 4;\n    std::cout << \"That is \" << each << \" slices each\\n\";\n    return 0;\n}\n",
+           "total / 4;", "total / 4.0;", "Make the 4 a decimal:", "That is 3.5 slices each", "pizza_party.cpp")
+
+bug_lesson(3, "end_of_list", "Stop at the end of the list",
+           ["A list of 3 has boxes 0, 1 and 2. There is no box 3!",
+            "i <= scores.size() lets i reach 3, so the loop asks for a box that isn't there. The program crashes.",
+            "i < scores.size() stops at 2, the last real box."],
+           "This program crashes. Fix the loop so it prints:  Total: 15",
+           VEC + "\nint main() {\n    std::vector<int> scores{3, 7, 5};\n    int total = 0;\n    for (std::size_t i = 0; i <= scores.size(); i = i + 1) {\n        total += scores[i];\n    }\n    std::cout << \"Total: \" << total << \"\\n\";\n    return 0;\n}\n",
+           "i <= scores", "i < scores", "Stop before the size, not at it:", "Total: 15", "pizza_party.cpp")
+
+bug_lesson(4, "less_or_equal", "< or <=",
+           ["i < 5 means 'smaller than 5', so the loop stops before 5.",
+            "i <= 5 means 'smaller than or the same as 5', so 5 gets a turn too.",
+            "Mixing these up makes a loop run one time too few or one time too many. It's called an off-by-one bug, and everyone makes it."],
+           "The loop should count all the way to 5. Fix it so the program prints 1 2 3 4 5, each on its own line.",
+           INC + "\nint main() {\n    for (int i = 1; i < 5; i = i + 1) {\n        std::cout << i << \"\\n\";\n    }\n    return 0;\n}\n",
+           "i < 5", "i <= 5", "Let 5 have a turn:", "1\n2\n3\n4\n5", "sum_to_ten.cpp")
+
+bug_lesson(5, "equals", "= puts, == asks",
+           ["One = puts a value in a box: guess = 7 makes guess hold 7.",
+            "Two == asks a question: guess == 7 checks if guess holds 7, and changes nothing.",
+            "if (guess = secret) doesn't ask anything. It copies the secret into guess, so the answer always looks right!"],
+           "The guess is 4 and the secret is 7, but it says you got it. Fix it so the program prints:  Not this time!",
+           INC + "\nint main() {\n    int secret = 7;\n    int guess = 4;\n    if (guess = secret) {\n        std::cout << \"You got it!\\n\";\n    } else {\n        std::cout << \"Not this time!\\n\";\n    }\n    return 0;\n}\n",
+           "guess = secret", "guess == secret", "Ask with two equals signs:", "Not this time!", "secret_number.cpp")
+
+bug_lesson(6, "catch_the_answer", "Catch the answer",
+           ["return hands an answer back. But someone has to catch it!",
+            "double_it(score); works out the answer and then drops it. score stays the same.",
+            "score = double_it(score); catches the answer and puts it in the box."],
+           "The score should go from 4 to 8. Fix it so the program prints:  Score: 8",
+           INC + "\nint double_it(int n) {\n    return n * 2;\n}\n\nint main() {\n    int score = 4;\n    double_it(score);\n    std::cout << \"Score: \" << score << \"\\n\";\n    return 0;\n}\n",
+           "    double_it(score);", "    score = double_it(score);", "Put the answer back in the box:", "Score: 8", "double_it.cpp")
+
+track_number = {10: 0, 11: 8, 12: 12, 13: 18}
 for x in L:
     number = x["n"] + track_number[x["course"]]
     name = "cpp%02d_%s" % (number, x["slug"])
@@ -215,6 +274,8 @@ for x in L:
             "expected_output": x["expected"]}
     if x["input"]:
         data["input"] = x["input"]
+    if x["practice"]:
+        data["practice"] = x["practice"]
     with open(os.path.join(out_dir, name + ".json"), "w", encoding="utf-8", newline="\n") as fh:
         json.dump(data, fh, indent=2, ensure_ascii=False)
         fh.write("\n")

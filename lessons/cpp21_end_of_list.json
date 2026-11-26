@@ -1,0 +1,16 @@
+{
+  "title": "Stop at the end of the list",
+  "language": "cpp",
+  "course": 13,
+  "number": 21,
+  "instructions": [
+    "A list of 3 has boxes 0, 1 and 2. There is no box 3!",
+    "i <= scores.size() lets i reach 3, so the loop asks for a box that isn't there. The program crashes.",
+    "i < scores.size() stops at 2, the last real box."
+  ],
+  "task": "This program crashes. Fix the loop so it prints:  Total: 15",
+  "starter_code": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> scores{3, 7, 5};\n    int total = 0;\n    for (std::size_t i = 0; i <= scores.size(); i = i + 1) {\n        total += scores[i];\n    }\n    std::cout << \"Total: \" << total << \"\\n\";\n    return 0;\n}\n",
+  "hint": "Stop before the size, not at it:\n\n    for (std::size_t i = 0; i < scores.size(); i = i + 1) {",
+  "expected_output": "Total: 15",
+  "practice": "pizza_party.cpp"
+}

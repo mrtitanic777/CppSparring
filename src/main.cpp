@@ -33,6 +33,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {
             else if (args[i] == L"--dark") o.dark = true;
             else if (args[i] == L"--lesson" && more) o.lesson = std::stoi(args[++i]);
             else if (args[i] == L"--run") o.run_lesson = true;
+            else if (args[i] == L"--code" && more) o.code_file = args[++i];
             else if (args[i] == L"--hint") o.hint = true;
             else if (args[i] == L"--quiz" && more) o.quiz = std::stoi(args[++i]);
             else if (args[i] == L"--quest" && more) o.quest_step = std::stoi(args[++i]);

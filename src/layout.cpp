@@ -10,6 +10,15 @@
 
 namespace sparring {
 
+int lesson_practice(const Model& m) {
+    if (m.page != Page::Lesson || m.fixing || m.quest.active || !m.lesson_ran || !m.lesson_check.passed) return -1;
+    const Lesson* ls = m.shown_lesson();
+    if (!ls || ls->practice.empty()) return -1;
+    for (std::size_t i = 0; i < examples().size(); ++i)
+        if (ls->practice == examples()[i].file) return level_open(m.progress, examples()[i].level) ? static_cast<int>(i) : -1;   // not a way round a locked level
+    return -1;
+}
+
 Layout compute_layout(const Model& m, float width, float height) {
     Layout l;
     l.width = width;
@@ -242,6 +251,12 @@ Layout compute_layout(const Model& m, float width, float height) {
         const Rect& b = l.card_b;
         l.lesson_text = {a.x + 24, a.y + 84, std::max(0.0f, a.w - 48), std::max(0.0f, a.h - 100)};
         l.lesson_next = {b.x + 16, b.bottom() - 56, std::max(0.0f, b.w - 32), 40};
+        if (lesson_practice(m) >= 0) {
+            const float half = std::floor((l.lesson_next.w - 8) / 2);
+            l.lesson_practice = {l.lesson_next.x, l.lesson_next.y, half, 40};
+            l.lesson_next.x += half + 8;
+            l.lesson_next.w -= half + 8;
+        }
         const float avail = l.lesson_next.y - 12 - (b.y + 84);
         l.editor = {b.x + 16, b.y + 84, std::max(0.0f, b.w - 32), std::max(120.0f, std::floor(avail * (m.lesson_reads_input ? 0.4f : 0.52f)))};
         const float by = l.editor.bottom() + 12;

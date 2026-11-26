@@ -8,6 +8,7 @@
 #include <commctrl.h>
 
 #include <algorithm>
+#include <cstring>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -712,6 +713,7 @@ struct App {
             if (layout.hint_button.contains(x, y)) return Control::LessonHint;
             if (layout.reset_button.contains(x, y)) return Control::LessonReset;
             if (layout.lesson_next.contains(x, y)) return Control::LessonNext;
+            if (lesson_practice(model) >= 0 && layout.lesson_practice.contains(x, y)) return Control::LessonPractice;
             if (layout.editor.contains(x, y)) return Control::Editor;
             break;
         case Page::Quiz:
@@ -960,6 +962,14 @@ struct App {
                 const auto at = std::find(order.begin(), order.end(), model.lesson);
                 if (at != order.end() && at + 1 != order.end()) open_lesson(*(at + 1));
                 else model.page = Page::Lessons;
+            }
+            return;
+        case Control::LessonPractice:
+            if (const int ex = lesson_practice(model); ex >= 0) {
+                const Example& e = examples()[static_cast<std::size_t>(ex)];
+                model.pick_level = e.level;
+                if (model.source_name == e.file && !model.importing && !model.nodes.empty()) model.page = Page::Look;
+                else load_file(write_example(e));
             }
             return;
         case Control::QuizAnswer:
@@ -1409,6 +1419,7 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
             model.confetti = 0;
             kick();
         }
+        relayout();   // a passed lesson may show its Practice button
         invalidate();
         return 0;
     }
@@ -1668,6 +1679,10 @@ int render_png(const ShotOptions& o) {
         const Lesson& ls = lessons()[static_cast<std::size_t>(o.lesson)];
         m.lesson = o.lesson;
         m.lesson_code = ls.starter;
+        if (!o.code_file.empty()) {
+            std::ifstream in(std::filesystem::path(o.code_file), std::ios::binary);
+            m.lesson_code.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        }
         m.lesson_reads_input = lesson_reads_input(ls);
         m.lesson_input = !ls.input.empty() ? ls.input : m.lesson_reads_input ? "7\n" : "";
         m.hint_shown = o.hint;
@@ -2078,6 +2093,52 @@ int self_test(const std::wstring& log_path) {
         check("a box with no first value holds the same junk every time", outcome(Rule::RemoveInit, "-14316557") == static_cast<int>(Outcome::Different));
         check("making each an int chops off the .5", outcome(Rule::MakeInt, "That is 3 slices each") == static_cast<int>(Outcome::Different));
         check("dividing by 4 instead of 4.0 is whole-number division", outcome(Rule::WholeDivide, "That is 3 slices each") == static_cast<int>(Outcome::Different));
+    }
+
+    // ---- the lessons about kinds of bug: each starter is broken, its hint fixes it, and it points at a Practice program
+    {
+        bool linked = true;
+        for (const Lesson& ls : lessons())
+            if (!ls.practice.empty())
+                linked = linked && std::any_of(examples().begin(), examples().end(), [&](const Example& e) { return ls.practice == e.file; });
+        check("every lesson's Practice program is there", linked);
+        struct Fixed { const char* id; const char* from; const char* to; };
+        const Fixed fixes[] = {
+            {"cpp19_first_value", "int total;", "int total = 0;"},
+            {"cpp20_whole_numbers", "total / 4;", "total / 4.0;"},
+            {"cpp21_end_of_list", "i <= scores", "i < scores"},
+            {"cpp22_less_or_equal", "i < 5", "i <= 5"},
+            {"cpp23_equals", "guess = secret", "guess == secret"},
+            {"cpp24_catch_the_answer", "    double_it(score);", "    score = double_it(score);"},
+        };
+        int found = 0, broken = 0, mended = 0;
+        for (const Fixed& f : fixes) {
+            const auto at = std::find_if(lessons().begin(), lessons().end(), [&](const Lesson& ls) { return ls.id == f.id; });
+            if (at == lessons().end() || at->course != 13 || at->practice.empty()) continue;
+            ++found;
+            std::string code = at->starter;
+            const std::size_t pos = code.find(f.from);
+            if (!check_lesson(*at, code).passed) ++broken;
+            if (pos != std::string::npos && check_lesson(*at, code.replace(pos, std::strlen(f.from), f.to)).passed) ++mended;
+        }
+        check("the six bug lessons are in C++ 4", found == 6);
+        check("each bug lesson's starter does not pass", broken == 6);
+        check("each bug lesson's fix passes", mended == 6);
+
+        const auto eq = std::find_if(lessons().begin(), lessons().end(), [](const Lesson& ls) { return ls.id == "cpp23_equals"; });
+        const int eq_index = static_cast<int>(eq - lessons().begin());
+        for (int n = 0; n < kRightToOpenNextLevel; ++n) m.progress.right.insert("robot_age.cpp|test@" + std::to_string(n));   // open level 2
+        a.open_lesson(eq_index);
+        check("no Practice button before the lesson is passed", lesson_practice(m) < 0);
+        std::string code = eq->starter;
+        code.replace(code.find("guess = secret"), 14, "guess == secret");
+        a.set_editor_text(code);
+        click(Control::LessonRun);
+        check("a passed bug lesson shows its Practice button",
+              pump([&] { return !m.lesson_running && m.lesson_ran; }, 90000) && m.lesson_check.passed && lesson_practice(m) >= 0 && a.layout.lesson_practice.w > 0);
+        click(Control::LessonPractice);
+        check("the Practice button opens Secret number", m.source_name == "secret_number.cpp" && m.pick_level == 2);
+        pump([&] { return !m.importing; }, 90000);
     }
 
     // ---- the other places

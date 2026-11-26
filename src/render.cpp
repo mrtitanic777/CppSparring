@@ -1889,6 +1889,8 @@ void draw_lesson(Draw& d) {
     if (q.active) next = q.at + 1 >= static_cast<int>(q.steps.size()) ? L"Finish the quest  →" : L"Next step  →";
     d.button(Control::LessonNext, l.lesson_next,
              m.lesson_ran && chk.passed ? next : std::wstring(m.fixing ? L"Fix the bug to go on" : L"Pass the task to go on"), m.lesson_ran && chk.passed, true);
+    if (const int ex = lesson_practice(m); ex >= 0)
+        d.button(Control::LessonPractice, l.lesson_practice, L"Break it in " + widen(examples()[static_cast<std::size_t>(ex)].title), true, false);
 }
 
 // ---- a quick quiz card

@@ -23,6 +23,7 @@ struct Lesson {
     int course = 1;
     std::string path;                        // a Fix it puzzle: the program it came from (it is built as if it were that file)
     std::string bug_kind;                    // a Fix it puzzle: its kind of bug (bug_kinds())
+    std::string practice;                    // a Practice program with the same idea in it ("pizza_party.cpp"), or empty
 };
 
 struct Course {

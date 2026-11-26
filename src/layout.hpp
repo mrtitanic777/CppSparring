@@ -41,7 +41,7 @@ enum class Control {
     ReplayBack, ReplayPlay, ReplayNext, ReplayBar, ReplayStop,
     PrevChallenge, NextChallenge, Guess, NextAfterResult, WatchChanged, BossTimer,
     QuestSkip, QuestQuit,
-    LessonTile, LessonList, LessonRun, LessonReset, LessonHint, LessonNext, Editor,
+    LessonTile, LessonList, LessonRun, LessonReset, LessonHint, LessonNext, LessonPractice, Editor,
     QuizAnswer, QuizNext,
     ChestOpen, QuestHome, QuestAgain,
     SetupRecheck, SetupInstaller, SetupContinue,
@@ -335,7 +335,7 @@ struct Layout {
     float lessons_height = 0;                          // the whole list, for scrolling
 
     // Lesson: read on the left, write and run on the right
-    Rect lesson_text, task_box, expect_box, hint_box, editor, run_button, reset_button, hint_button, lesson_out, lesson_banner, lesson_next;
+    Rect lesson_text, task_box, expect_box, hint_box, editor, run_button, reset_button, hint_button, lesson_out, lesson_banner, lesson_next, lesson_practice;
 
     // Quiz
     Rect quiz_card, quiz_code;
@@ -352,5 +352,8 @@ struct Layout {
 };
 
 Layout compute_layout(const Model& m, float width, float height);
+
+// The Practice program a passed lesson points at (an examples() index), shown as a button beside Next; -1 for none.
+int lesson_practice(const Model& m);
 
 }  // namespace sparring

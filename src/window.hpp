@@ -18,6 +18,7 @@ struct ShotOptions {
     bool dark = false;
     int lesson = -1;               // page lesson: which one; with --run it is really built and checked
     bool run_lesson = false;
+    std::wstring code_file;        // page lesson: the code in the editor (else the starter)
     bool hint = false;
     int quiz = -1;                 // page quiz: which card; --guess picks an answer
     int quest_step = -1;           // >= 0: a quest is under way at this step

@@ -1,0 +1,16 @@
+{
+  "title": "= puts, == asks",
+  "language": "cpp",
+  "course": 13,
+  "number": 23,
+  "instructions": [
+    "One = puts a value in a box: guess = 7 makes guess hold 7.",
+    "Two == asks a question: guess == 7 checks if guess holds 7, and changes nothing.",
+    "if (guess = secret) doesn't ask anything. It copies the secret into guess, so the answer always looks right!"
+  ],
+  "task": "The guess is 4 and the secret is 7, but it says you got it. Fix it so the program prints:  Not this time!",
+  "starter_code": "#include <iostream>\n\nint main() {\n    int secret = 7;\n    int guess = 4;\n    if (guess = secret) {\n        std::cout << \"You got it!\\n\";\n    } else {\n        std::cout << \"Not this time!\\n\";\n    }\n    return 0;\n}\n",
+  "hint": "Ask with two equals signs:\n\n    if (guess == secret) {",
+  "expected_output": "Not this time!",
+  "practice": "secret_number.cpp"
+}

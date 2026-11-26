@@ -1,0 +1,16 @@
+{
+  "title": "Why 7 / 2 is 3",
+  "language": "cpp",
+  "course": 13,
+  "number": 20,
+  "instructions": [
+    "When you divide a whole number by a whole number, C++ gives back a whole number. It throws away the part after the dot, so 7 / 2 is 3.",
+    "If one of them is a decimal, like 2.0, the answer is a decimal too: 7 / 2.0 is 3.5.",
+    "Putting the answer in a double box is not enough. The dividing already happened with whole numbers!"
+  ],
+  "task": "14 slices shared by 4 people should be 3.5 each. Fix it so the program prints:  That is 3.5 slices each",
+  "starter_code": "#include <iostream>\n\nint main() {\n    int total = 14;\n    double each = total / 4;\n    std::cout << \"That is \" << each << \" slices each\\n\";\n    return 0;\n}\n",
+  "hint": "Make the 4 a decimal:\n\n    double each = total / 4.0;",
+  "expected_output": "That is 3.5 slices each",
+  "practice": "pizza_party.cpp"
+}

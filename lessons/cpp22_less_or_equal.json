@@ -1,0 +1,16 @@
+{
+  "title": "< or <=",
+  "language": "cpp",
+  "course": 13,
+  "number": 22,
+  "instructions": [
+    "i < 5 means 'smaller than 5', so the loop stops before 5.",
+    "i <= 5 means 'smaller than or the same as 5', so 5 gets a turn too.",
+    "Mixing these up makes a loop run one time too few or one time too many. It's called an off-by-one bug, and everyone makes it."
+  ],
+  "task": "The loop should count all the way to 5. Fix it so the program prints 1 2 3 4 5, each on its own line.",
+  "starter_code": "#include <iostream>\n\nint main() {\n    for (int i = 1; i < 5; i = i + 1) {\n        std::cout << i << \"\\n\";\n    }\n    return 0;\n}\n",
+  "hint": "Let 5 have a turn:\n\n    for (int i = 1; i <= 5; i = i + 1) {",
+  "expected_output": "1\n2\n3\n4\n5",
+  "practice": "sum_to_ten.cpp"
+}

@@ -24,8 +24,9 @@ really compiling and running the code.
 - **Fix it**: CppSparring breaks the program for real (it keeps trying changes until one really changes what it prints, crashes it
   or stops it building) and hands it to you to repair. It's fixed when it prints what the working program printed.
 - **Watch it run**: step through a program line by line and see every box (variable) change.
-- **Lessons**: 18 C++ lessons (up to vectors, strings and rock-paper-scissors) and 39 C lessons where you write the code yourself and the compiler checks what it prints. The C
-  lessons come from [CodingTeacher](https://github.com/mrtitanic777/CodingTeacher).
+- **Lessons**: 24 C++ lessons (up to vectors, strings and rock-paper-scissors) and 39 C lessons where you write the code yourself and the compiler checks what it prints. The C
+  lessons come from [CodingTeacher](https://github.com/mrtitanic777/CodingTeacher). The last six, **Bugs to watch for**, each fix one kind of bug (a box with no first
+  value, `7 / 2` being `3`, going past the end of a list, `<` or `<=`, `=` or `==`, a dropped answer); once passed, a button opens a Practice program to break the same way.
 - **Eleven kinds of bug**, the ones beginners really hit: off by one, reading past the end of a list, a box with no first value,
   whole numbers vs decimals (`7 / 2` is `3`), math signs, `=` vs `==`, a lost line, `&` and copies, a missing `return`, `const`, and the
   leftover Enter key. Programs are built so these act the same way every time: a box with no first value always holds
@@ -104,7 +105,7 @@ each lesson's worked solution into `check` so it can be compiled and compared wi
 - `cppsparring --selftest LOG` drives the real window, never shown, through a quest, a lesson, a Fix it puzzle, a Bug Boss, typed
   answers and the replay, and writes what passed and failed to `LOG`. It uses a throwaway progress file.
 - `cppsparring --screenshot OUT.png --page home|practice|look|break|fix|lessons|lesson|quiz|questdone|badges|summary|setup [--file X.cpp|example:N]
-  [--guess 0-3] [--replay STEP] [--lesson N] [--run] [--dark]` draws the window into a PNG without showing it.
+  [--guess 0-3] [--replay STEP] [--lesson N] [--run] [--code FILE] [--dark]` draws the window into a PNG without showing it.
 - `cppsparring --make-icon OUT.ico` redraws the app icon.
 
 ## License
