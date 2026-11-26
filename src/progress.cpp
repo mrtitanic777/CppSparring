@@ -114,6 +114,47 @@ const std::vector<Badge>& all_badges() {
     return all;
 }
 
+const std::vector<BugKind>& bug_kinds() {
+    static const std::vector<BugKind> all = {
+        {"offbyone", "Off by one", "< or <=, and where a loop starts counting"},
+        {"pastend", "Past the end of a list", "reading a box a list doesn't have"},
+        {"init", "Boxes with no first value", "a box that starts out holding junk"},
+        {"decimals", "Whole numbers and decimals", "int vs double, and 7 / 2 being 3"},
+        {"math", "Math signs", "+, - and * mixed up"},
+        {"equals", "= and ==", "copying a value instead of comparing"},
+        {"lostline", "Lines that change a box", "a box keeping its old value"},
+        {"copies", "& and copies", "a job changing a copy, not the real thing"},
+        {"return", "Handing back answers", "a job with no return"},
+        {"const", "const promises", "a box that should never change"},
+        {"typing", "Typed answers", "the leftover Enter key (cin.ignore)"},
+    };
+    return all;
+}
+
+const char* bug_kind(const MutationToggle& t) {
+    switch (t.rule) {
+    case Rule::RemoveRef: return "copies";
+    case Rule::RemoveConst: return "const";
+    case Rule::RemoveReturn: return "return";
+    case Rule::RemoveIgnore: return "typing";
+    case Rule::EqToAssign: return "equals";
+    case Rule::SwapOp: return !t.op_from.empty() && (t.op_from[0] == '<' || t.op_from[0] == '>') ? "offbyone" : "math";
+    case Rule::RemoveAssign: return "lostline";
+    case Rule::StartAt: return "offbyone";
+    case Rule::MakeInt:
+    case Rule::WholeDivide: return "decimals";
+    case Rule::RemoveInit: return "init";
+    case Rule::PastEnd: return "pastend";
+    }
+    return "math";
+}
+
+const BugKind* find_bug_kind(const std::string& id) {
+    for (const BugKind& k : bug_kinds())
+        if (id == k.id) return &k;
+    return nullptr;
+}
+
 const Badge* find_badge(const std::string& id) {
     for (const Badge& b : all_badges())
         if (id == b.id) return &b;
@@ -167,6 +208,11 @@ Progress load_progress() {
         else if (k == "lesson") p.lessons_done.insert(v);
         else if (k == "quiz") p.quiz_right.insert(v);
         else if (k == "fixed") p.fixed.insert(v);
+        else if (k == "kind") {   // id|right|wrong|fixed
+            Progress::KindCount n;
+            char id[64] = {};
+            if (std::sscanf(v.c_str(), "%63[^|]|%d|%d|%d", id, &n.right, &n.wrong, &n.fixed) >= 1) p.kinds[id] = n;
+        }
         else if (k == "day") p.days.insert(v);
         else if (k == "streak") p.streak = std::atoi(v.c_str());
         else if (k == "best_streak") p.best_streak = std::atoi(v.c_str());
@@ -194,6 +240,7 @@ void save_progress(const Progress& p) {
     for (const std::string& l : p.lessons_done) s << "lesson=" << l << "\n";
     for (const std::string& q : p.quiz_right) s << "quiz=" << q << "\n";
     for (const std::string& f : p.fixed) s << "fixed=" << f << "\n";
+    for (const auto& [id, n] : p.kinds) s << "kind=" << id << "|" << n.right << "|" << n.wrong << "|" << n.fixed << "\n";
     for (const std::string& d : p.days) s << "day=" << d << "\n";
     std::ofstream(progress_file(), std::ios::binary | std::ios::trunc) << s.str();
 }
@@ -242,6 +289,7 @@ std::vector<Cheer> record_guess(Progress& p, const std::string& file, const Muta
 
     ++p.guesses;
     played_today(p, out);
+    ++(right ? p.kinds[bug_kind(t)].right : p.kinds[bug_kind(t)].wrong);
     earn(p, out, "first");
     if (right) {
         ++p.correct;
@@ -295,11 +343,12 @@ std::vector<Cheer> record_lesson(Progress& p, const std::string& id, bool passed
     return out;
 }
 
-std::vector<Cheer> record_fix(Progress& p, const std::string& id, bool passed) {
+std::vector<Cheer> record_fix(Progress& p, const std::string& id, bool passed, const std::string& kind) {
     std::vector<Cheer> out;
     played_today(p, out);
     if (passed) {
         const bool first_time = p.fixed.insert(id).second;
+        if (first_time && !kind.empty()) ++p.kinds[kind].fixed;
         add_xp(p, out, first_time ? kXpFix : kXpLessonAgain);
         earn(p, out, "fix1");
         if (p.fixed.size() >= 5) earn(p, out, "fix5");

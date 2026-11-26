@@ -40,8 +40,18 @@ std::vector<Cheer> record_guess(Progress& p, const std::string& file, const Muta
 std::vector<Cheer> record_watch(Progress& p);
 // A lesson's code was run; passed or not.
 std::vector<Cheer> record_lesson(Progress& p, const std::string& id, bool passed);
-// A Fix it puzzle was run; fixed or not.
-std::vector<Cheer> record_fix(Progress& p, const std::string& id, bool passed);
+// A Fix it puzzle was run; fixed or not. `kind`: its bug_kind().
+std::vector<Cheer> record_fix(Progress& p, const std::string& id, bool passed, const std::string& kind = {});
+
+// The kinds of bug a learner meets, for the grown-ups' summary: which ones they get and which keep tripping them up.
+struct BugKind {
+    const char* id;
+    const char* name;   // "Off by one"
+    const char* what;   // "< or <=, and where a loop starts counting"
+};
+const std::vector<BugKind>& bug_kinds();
+const char* bug_kind(const MutationToggle& t);   // an id of bug_kinds()
+const BugKind* find_bug_kind(const std::string& id);
 
 // A quiz card was answered.
 std::vector<Cheer> record_quiz(Progress& p, const std::string& id, bool right);

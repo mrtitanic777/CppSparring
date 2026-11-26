@@ -8,6 +8,7 @@
 #include "explain.hpp"
 #include "lessons.hpp"
 #include "mutate.hpp"
+#include "progress.hpp"
 
 namespace sparring {
 
@@ -23,6 +24,11 @@ std::string clue(const MutationToggle& t) {
     case Rule::RemoveConst: return "Someone took const away from " + t.name + ".";
     case Rule::RemoveReturn: return "Someone deleted the return in " + t.name + ".";
     case Rule::RemoveIgnore: return "Someone deleted cin.ignore().";
+    case Rule::StartAt: return "Someone made the loop start " + t.name + " at " + t.op_to + " instead of " + t.op_from + ".";
+    case Rule::MakeInt: return "Someone turned " + t.name + " from a " + t.op_from + " into an int.";
+    case Rule::RemoveInit: return "Someone took away " + t.name + "'s first value.";
+    case Rule::WholeDivide: return "Someone turned " + t.op_from + " into " + t.op_to + ".";
+    case Rule::PastEnd: return "Someone turned the loop's < into <=.";
     }
     return {};
 }
@@ -107,6 +113,7 @@ FixPuzzle make_fix(const std::string& path, const std::string& name, const std::
     if (!changed.empty()) l.hint += "    " + changed + "\n\n";
     l.hint += clue(t) + " Put it back.";
     l.path = path;
+    l.bug_kind = bug_kind(t);
     out.ok = true;
     return out;
 }

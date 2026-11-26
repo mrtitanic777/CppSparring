@@ -114,7 +114,8 @@ void change_line(std::string& s, const MutationToggle& t) {
         if (p != std::string::npos) s.replace(p, 2, "=");
         break;
     }
-    case Rule::SwapOp: {
+    case Rule::SwapOp:
+    case Rule::PastEnd: {
         const std::string pat = " " + t.op_from + " ";
         const std::size_t p = find_code(s, pat);
         if (p != std::string::npos) s.replace(p, pat.size(), " " + t.op_to + " ");
@@ -124,6 +125,34 @@ void change_line(std::string& s, const MutationToggle& t) {
         std::size_t indent = 0;
         while (indent < s.size() && (s[indent] == ' ' || s[indent] == '\t')) ++indent;
         s.insert(indent, "// ");
+        break;
+    }
+    case Rule::StartAt: {
+        const std::string pat = " " + t.name + " = " + t.op_from + ";";
+        const std::size_t p = find_code(s, pat);
+        if (p != std::string::npos) s.replace(p, pat.size(), " " + t.name + " = " + t.op_to + ";");
+        break;
+    }
+    case Rule::MakeInt: {
+        const std::size_t name_at = find_word(s, t.name);
+        std::size_t c = std::string::npos;
+        for (std::size_t p = find_word(s, t.op_from); p != std::string::npos && p < name_at; p = find_word(s, t.op_from, p + 1)) c = p;
+        if (c != std::string::npos) s.replace(c, t.op_from.size(), "int");
+        break;
+    }
+    case Rule::RemoveInit: {
+        const std::size_t p = find_code(s, " " + t.name + " = ");
+        const std::size_t end = s.rfind(';');
+        if (p != std::string::npos && end != std::string::npos && end > p) {
+            const std::size_t from = p + 1 + t.name.size();
+            s.erase(from, end - from);
+        }
+        break;
+    }
+    case Rule::WholeDivide: {
+        const std::string pat = " / " + t.op_from;
+        const std::size_t p = find_code(s, pat);
+        if (p != std::string::npos) s.replace(p, pat.size(), " / " + t.op_to);
         break;
     }
     }
@@ -171,7 +200,12 @@ std::vector<MutationToggle> generate_mutations(const std::vector<AstNode>& nodes
             for (const Swap& sw : kSwaps) {
                 if (n.name != sw.from || find_code(line_text(n.line), std::string(" ") + sw.from + " ") == std::string::npos) continue;
                 const std::size_t before = toggles.size();
-                add(toggles, seen, Rule::SwapOp, n, i, n.name, std::string("Change ") + sw.from + " into " + sw.to, sw.why);
+                // a loop over a list: < its size, turned into <=, reads one box past the end
+                if (n.name == "<" && find_code(line_text(n.line), ".size()") != std::string::npos)
+                    add(toggles, seen, Rule::PastEnd, n, i, n.name, "Let the loop go one box past the end",
+                        "A list counts its boxes from 0, so a list of 4 has boxes 0, 1, 2 and 3. With <= the loop also tries box 4, which isn't there.");
+                else
+                    add(toggles, seen, Rule::SwapOp, n, i, n.name, std::string("Change ") + sw.from + " into " + sw.to, sw.why);
                 if (toggles.size() > before) {
                     toggles.back().op_from = sw.from;
                     toggles.back().op_to = sw.to;
@@ -204,6 +238,62 @@ std::vector<MutationToggle> generate_mutations(const std::vector<AstNode>& nodes
         if (n.kind == "MemberExpr" && n.name == "ignore") {
             add(toggles, seen, Rule::RemoveIgnore, n, i, n.name, "Delete cin.ignore()",
                 "cin.ignore() throws away the leftover Enter key after you type something. We are deleting it.");
+        }
+        // dividing by a number with a dot (4.0): without the dot it is whole-number division
+        if (op && n.name == "/") {
+            const std::string s = line_text(n.line);
+            const std::size_t p = find_code(s, " / ");
+            if (p != std::string::npos) {
+                std::size_t e = p + 3, dot = std::string::npos;
+                while (e < s.size() && (std::isdigit(static_cast<unsigned char>(s[e])) || s[e] == '.')) {
+                    if (s[e] == '.') dot = e;
+                    ++e;
+                }
+                const std::string num = s.substr(p + 3, e - p - 3);
+                bool zeros = dot != std::string::npos && dot > p + 3 && dot + 1 < e;
+                for (std::size_t k = dot + 1; zeros && k < e; ++k) zeros = s[k] == '0';
+                if (zeros) {
+                    const std::string whole = s.substr(p + 3, dot - p - 3);
+                    add(toggles, seen, Rule::WholeDivide, n, i, n.name, "Change " + num + " into " + whole,
+                        "With " + num + " the computer keeps the part after the dot. With just " + whole +
+                            ", both sides are whole numbers, so it does whole-number division: 7 / 2 is 3, not 3.5.");
+                    if (!toggles.empty() && toggles.back().rule == Rule::WholeDivide && toggles.back().line == n.line) {
+                        toggles.back().op_from = num;
+                        toggles.back().op_to = whole;
+                    }
+                }
+            }
+        }
+        if ((n.kind == "VarDecl" || n.kind == "ParmVarDecl") && !n.name.empty() && (n.type == "double" || n.type == "float") &&
+            find_word(line_text(n.line), n.type) != std::string::npos) {
+            add(toggles, seen, Rule::MakeInt, n, i, n.name, "Make " + n.name + " a whole number (int)",
+                std::string("A ") + n.type + " box holds numbers with a dot, like 3.5. An int box only holds whole numbers, so the part after the dot gets chopped off.");
+            if (!toggles.empty() && toggles.back().rule == Rule::MakeInt && toggles.back().line == n.line) toggles.back().op_from = n.type;
+        }
+        if (n.kind == "VarDecl" && !n.name.empty()) {
+            const std::string s = trim(line_text(n.line));
+            const bool in_for = find_code(s, "for (") != std::string::npos;
+            if (in_for) {   // the loop's counter: start it one off
+                for (const char* from : {"0", "1"}) {
+                    if (find_code(s, " " + n.name + " = " + from + ";") == std::string::npos) continue;
+                    const std::string to = from[0] == '0' ? "1" : "0";
+                    add(toggles, seen, Rule::StartAt, n, i, n.name, "Start " + n.name + " at " + to + " instead of " + from,
+                        "This loop counts with " + n.name + ". Starting it at " + to + " makes the loop run one time " +
+                            (to == "1" ? "fewer (and skip box 0 of a list)." : "more."));
+                    if (!toggles.empty() && toggles.back().rule == Rule::StartAt && toggles.back().line == n.line) {
+                        toggles.back().op_from = from;
+                        toggles.back().op_to = to;
+                    }
+                }
+            }
+            // "int total = 0;": a whole-number box with a first value, alone on its line
+            // (whole numbers only: their junk is always -1431655766, where a double's is a puzzling "nan")
+            static const std::set<std::string> numbers = {"int", "long", "long long", "short"};
+            if (!in_for && numbers.count(n.type) && !s.empty() && s.back() == ';' && s.find(',') == std::string::npos &&
+                s.rfind("const", 0) != 0 && s.rfind("static", 0) != 0 && find_code(s, " " + n.name + " = ") != std::string::npos) {
+                add(toggles, seen, Rule::RemoveInit, n, i, n.name, "Leave out " + n.name + "'s first value",
+                    "This line gives " + n.name + " its first value. Without it, the box holds whatever junk was left in that spot of memory.");
+            }
         }
         if (op && n.name == "==") {
             add(toggles, seen, Rule::EqToAssign, n, i, n.name, "Change == into =",

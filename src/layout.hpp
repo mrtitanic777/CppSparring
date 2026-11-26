@@ -29,7 +29,7 @@ constexpr float kLookRowHeight = 108.0f;
 
 // The places (Home, Practice, Lessons, Badges) and what opens from them: a program's Look and Break steps, one lesson, and the
 // quest's own pages. The rail only ever lists places.
-enum class Page { Home, Practice, Look, Break, Badges, Lessons, Lesson, Quiz, QuestDone, Setup };
+enum class Page { Home, Practice, Look, Break, Badges, Lessons, Lesson, Quiz, QuestDone, Setup, Summary };
 
 enum class Control {
     None, CaptionMinimize, CaptionMaximize, CaptionClose, SoundToggle,
@@ -44,7 +44,8 @@ enum class Control {
     LessonTile, LessonList, LessonRun, LessonReset, LessonHint, LessonNext, Editor,
     QuizAnswer, QuizNext,
     ChestOpen, QuestHome, QuestAgain,
-    SetupRecheck, SetupInstaller, SetupContinue
+    SetupRecheck, SetupInstaller, SetupContinue,
+    Grownups, SummaryBack
 };
 
 // Whether this computer can build programs (checked when CppSparring starts).
@@ -63,7 +64,7 @@ struct AstNode {
     std::vector<int> dependencies;
 };
 
-enum class Rule { RemoveRef, RemoveConst, RemoveReturn, RemoveIgnore, EqToAssign, SwapOp, RemoveAssign };
+enum class Rule { RemoveRef, RemoveConst, RemoveReturn, RemoveIgnore, EqToAssign, SwapOp, RemoveAssign, StartAt, MakeInt, RemoveInit, WholeDivide, PastEnd };
 
 // One way to break the program.
 struct MutationToggle {
@@ -71,7 +72,7 @@ struct MutationToggle {
     std::string label;          // "Take away the & from bank"
     std::string description;    // why that matters, in plain words
     std::string name;
-    std::string op_from, op_to; // SwapOp: "+" -> "-"
+    std::string op_from, op_to; // SwapOp and PastEnd: "+" -> "-"; StartAt: "0" -> "1"; MakeInt: "double"; WholeDivide: "4.0" -> "4"
     int line = 0;
     int target_node = -1;
 };
@@ -128,6 +129,10 @@ struct Progress {
     std::set<std::string> lessons_done;       // lesson ids passed
     std::set<std::string> quiz_right;         // quiz card ids answered right
     std::set<std::string> fixed;              // Fix it puzzles fixed (fix_key)
+    struct KindCount {
+        int right = 0, wrong = 0, fixed = 0;
+    };
+    std::map<std::string, KindCount> kinds;   // per kind of bug (bug_kinds()): guesses right and wrong, bugs fixed
     std::set<std::string> days;               // "2026-11-24": days something was done
     int xp = 0;
     int quests_done = 0;
@@ -317,6 +322,10 @@ struct Layout {
     // Badges
     std::array<Rect, 4> stats{};
     std::vector<Rect> badge_tiles;
+    Rect badges_grownups;   // opens the grown-ups' summary
+
+    // Summary (for grown-ups): the stats row above, then the week, what was done and the kinds of bug
+    Rect summary_back, summary_week, summary_done, summary_tip, summary_kinds;
 
     // Lessons: the list, with a heading per course
     Rect lessons_area;

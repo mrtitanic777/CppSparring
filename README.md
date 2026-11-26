@@ -5,7 +5,7 @@
 **Learn C++ by breaking real programs.**
 
 CppSparring is a Windows 11 app for beginners. It takes a small C++ program, changes one thing about it (takes away a `&`, turns
-`==` into `=`, deletes a line), and asks you: *what do you think will happen?* Then it builds and runs both versions for real and
+`==` into `=`, starts a loop at 1 instead of 0, deletes a line), and asks you: *what do you think will happen?* Then it builds and runs both versions for real and
 shows you what actually happened, and why.
 
 There is no AI guessing involved. Clang reads the program, the changes come from a fixed set of rules, and every answer comes from
@@ -19,13 +19,19 @@ really compiling and running the code.
   to fix, another quiz card. A treasure chest at the end.
 - **Bug Boss**: every third quest. Five quick guesses; each right one knocks it back, and right answers in a row build a combo. The
   timer is off unless you switch it on.
-- **Practice**: fifteen programs in five levels (boxes, jobs, loops, blueprints, lists and games). Look inside a program first, with every part
+- **Practice**: sixteen programs in five levels (boxes, jobs, loops, blueprints, lists and games). Look inside a program first, with every part
   explained in plain words, then try to break it, then fix it.
 - **Fix it**: CppSparring breaks the program for real (it keeps trying changes until one really changes what it prints, crashes it
   or stops it building) and hands it to you to repair. It's fixed when it prints what the working program printed.
 - **Watch it run**: step through a program line by line and see every box (variable) change.
 - **Lessons**: 18 C++ lessons (up to vectors, strings and rock-paper-scissors) and 39 C lessons where you write the code yourself and the compiler checks what it prints. The C
   lessons come from [CodingTeacher](https://github.com/mrtitanic777/CodingTeacher).
+- **Eleven kinds of bug**, the ones beginners really hit: off by one, reading past the end of a list, a box with no first value,
+  whole numbers vs decimals (`7 / 2` is `3`), math signs, `=` vs `==`, a lost line, `&` and copies, a missing `return`, `const`, and the
+  leftover Enter key. Programs are built so these act the same way every time: a box with no first value always holds
+  `-1431655766`, and reading past the end of a list always stops the program.
+- **For grown-ups**: one page (from Badges) with days played this week, lessons passed, bugs fixed, and which kinds of bug the
+  learner gets and which keep tripping them up. No grades, and nothing leaves the computer.
 - **Badges, stars, XP and ranks**, a gentle weekly goal (four days a week, never a broken streak), soft sounds with a mute button,
   confetti, and light and dark themes that follow Windows.
 
@@ -37,8 +43,8 @@ penalty for skipping, and nothing to wander off to in the middle of a quest.
 | ![Break it](docs/break.png) | ![Watch it run](docs/replay.png) |
 | **Write it** | **Bug Boss** |
 | ![A lesson](docs/lesson.png) | ![Bug Boss](docs/boss.png) |
-| **Fix it** | |
-| ![Fix it](docs/fix.png) | |
+| **Fix it** | **For grown-ups** |
+| ![Fix it](docs/fix.png) | ![For grown-ups](docs/summary.png) |
 
 ## Building
 
@@ -97,7 +103,7 @@ each lesson's worked solution into `check` so it can be compiled and compared wi
 
 - `cppsparring --selftest LOG` drives the real window, never shown, through a quest, a lesson, a Fix it puzzle, a Bug Boss, typed
   answers and the replay, and writes what passed and failed to `LOG`. It uses a throwaway progress file.
-- `cppsparring --screenshot OUT.png --page home|practice|look|break|fix|lessons|lesson|quiz|questdone|badges|setup [--file X.cpp|example:N]
+- `cppsparring --screenshot OUT.png --page home|practice|look|break|fix|lessons|lesson|quiz|questdone|badges|summary|setup [--file X.cpp|example:N]
   [--guess 0-3] [--replay STEP] [--lesson N] [--run] [--dark]` draws the window into a PNG without showing it.
 - `cppsparring --make-icon OUT.ico` redraws the app icon.
 

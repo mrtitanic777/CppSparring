@@ -685,7 +685,12 @@ struct App {
             return Control::None;
         };
         switch (model.page) {
-        case Page::Badges: break;
+        case Page::Badges:
+            if (layout.badges_grownups.contains(x, y)) return Control::Grownups;
+            break;
+        case Page::Summary:
+            if (layout.summary_back.contains(x, y)) return Control::SummaryBack;
+            break;
         case Page::Setup:
             if (model.tools == Tools::Ready) {
                 if (Rect{layout.setup_recheck.x, layout.setup_recheck.y, layout.setup_card.w - 64, 44}.contains(x, y)) return Control::SetupContinue;
@@ -841,6 +846,9 @@ struct App {
         case Page::Badges:
             if (esc) return click(Control::NavHome, -1), true;
             break;
+        case Page::Summary:
+            if (esc) return click(Control::SummaryBack, -1), true;
+            break;
         }
         return false;
     }
@@ -917,6 +925,8 @@ struct App {
                 ShellExecuteW(hwnd, L"open", L"https://visualstudio.microsoft.com/vs/community/", nullptr, nullptr, SW_SHOWNORMAL);
             break;
         case Control::SetupContinue: model.page = Page::Home; break;
+        case Control::Grownups: model.page = Page::Summary; break;
+        case Control::SummaryBack: model.page = Page::Badges; break;
         case Control::HeroQuest:
             if (model.tools == Tools::Missing) {
                 model.page = Page::Setup;
@@ -1389,7 +1399,7 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
         model.lesson_check = std::move(r->check);
         const bool passed = model.lesson_check.passed;
         const int before = model.progress.xp;
-        cheer(model.fixing ? record_fix(model.progress, shown->id, passed) : record_lesson(model.progress, shown->id, passed));
+        cheer(model.fixing ? record_fix(model.progress, shown->id, passed, shown->bug_kind) : record_lesson(model.progress, shown->id, passed));
         if (QuestStep* s = step(); s && passed && ((s->kind == StepKind::Write && !model.fixing && s->lesson == model.lesson) || (s->kind == StepKind::Fix && model.fixing))) {
             s->done = s->right = true;
             model.quest.xp += model.progress.xp - before;
@@ -1561,6 +1571,15 @@ int render_png(const ShotOptions& o) {
         p.best_streak = 4;
         p.guesses = 7;
         p.correct = 5;
+        p.kinds = {{"offbyone", {2, 5, 0}}, {"math", {4, 1, 1}}, {"init", {1, 0, 1}}, {"equals", {3, 0, 0}}, {"decimals", {1, 1, 0}}};
+        p.fixed = {"fix:a", "fix:b"};
+        p.lessons_done = {"cpp01_hello", "cpp02_boxes", "01_hello_world"};
+        p.quiz_right = {"q1", "q2", "q3"};
+        const std::vector<std::string> week = this_week();
+        p.days = {"2026-11-02", week[0], week[1]};
+        p.quests_done = 4;
+        p.bosses_beaten = 1;
+        p.xp = 180;
         m.progress = p;
         m.cheers.push_back(Cheer{"Badge: On a roll", "Guess right 3 times in a row.", L"\xE945", true});
         m.cheer_t = 1.0f;
@@ -1612,8 +1631,10 @@ int render_png(const ShotOptions& o) {
              : page == L"practice"  ? Page::Practice
              : page == L"setup"     ? Page::Setup
              : page == L"fix"       ? Page::Lesson
+             : page == L"summary"   ? Page::Summary
                                     : Page::Home;
     m.tools = Tools::Ready;
+    if (m.page == Page::Summary) m.cheers.clear();
     if (m.page == Page::Setup) {
         m.tool_check.visual_studio = o.setup >= 1;
         m.tool_check.clang = o.setup >= 2;
@@ -2006,7 +2027,7 @@ int self_test(const std::wstring& log_path) {
     check("Stop watching returns to Look", m.page == Page::Look && !m.replay_open);
 
     // ---- a change that doesn't build: == turned into = on text
-    check("Level 5 has three programs", examples_in_level(5).size() == 3);
+    check("Level 5 has four programs", examples_in_level(5).size() == 4);
     click(Control::NavPractice);
     click(Control::LevelTab, 4);
     int rps_tile = -1;
@@ -2030,6 +2051,35 @@ int self_test(const std::wstring& log_path) {
     click(Control::SessionBack);
     check("Back from Fix it returns to Practice", m.page == Page::Practice);
 
+    // ---- the newer kinds of bug, each really doing what it says (on Pizza party)
+    {
+        int pizza = -1;
+        for (std::size_t i = 0; i < examples().size(); ++i)
+            if (std::string(examples()[i].file) == "pizza_party.cpp") pizza = static_cast<int>(i);
+        check("Level 5 has Pizza party", pizza >= 0 && examples()[static_cast<std::size_t>(std::max(0, pizza))].level == 5);
+        const std::string path = write_example(examples()[static_cast<std::size_t>(std::max(0, pizza))]);
+        std::string src;
+        read_file(path, src);
+        const std::vector<MutationToggle> ts = generate_mutations(parse_ast(path), src);
+        const CompileResult original = compile_and_run(path);
+        check("Pizza party prints 14 slices, 3.5 each",
+              original.output.find("We ate 14 slices") != std::string::npos && original.output.find("3.5 slices each") != std::string::npos);
+        auto outcome = [&](Rule r, const char* needle) {
+            for (const MutationToggle& t : ts)
+                if (t.rule == r) {
+                    const CompileResult c = compile_and_run_string(apply_mutation(src, t), path);
+                    if (needle && c.output.find(needle) == std::string::npos) return -2;
+                    return static_cast<int>(classify(original, c));
+                }
+            return -1;
+        };
+        check("going past the end of the list crashes", outcome(Rule::PastEnd, nullptr) == static_cast<int>(Outcome::Crashes));
+        check("starting the loop at 1 skips the first slices", outcome(Rule::StartAt, "We ate 11 slices") == static_cast<int>(Outcome::Different));
+        check("a box with no first value holds the same junk every time", outcome(Rule::RemoveInit, "-14316557") == static_cast<int>(Outcome::Different));
+        check("making each an int chops off the .5", outcome(Rule::MakeInt, "That is 3 slices each") == static_cast<int>(Outcome::Different));
+        check("dividing by 4 instead of 4.0 is whole-number division", outcome(Rule::WholeDivide, "That is 3 slices each") == static_cast<int>(Outcome::Different));
+    }
+
     // ---- the other places
     click(Control::NavLearn);
     check("Lessons lists every lesson", m.page == Page::Lessons && a.layout.lesson_tiles.size() == lessons().size() && lessons().size() >= 57);
@@ -2039,6 +2089,18 @@ int self_test(const std::wstring& log_path) {
     check("Back returns to Lessons", m.page == Page::Lessons);
     click(Control::NavBadges);
     check("Badges shows the quest badge earned", m.page == Page::Badges && m.progress.badges.count("quest1") > 0);
+    click(Control::Grownups);
+    check("For grown-ups opens the summary", m.page == Page::Summary);
+    {
+        int tries = 0;
+        for (const auto& [id, n] : m.progress.kinds) tries += n.right + n.wrong + n.fixed;
+        const Progress saved = load_progress();
+        int saved_tries = 0;
+        for (const auto& [id, n] : saved.kinds) saved_tries += n.right + n.wrong + n.fixed;
+        check("the guesses and fixes are counted by kind of bug, and saved", tries > 0 && saved_tries == tries && find_bug_kind(saved.kinds.begin()->first));
+    }
+    press(VK_ESCAPE);
+    check("Esc on the summary goes back to Badges", m.page == Page::Badges);
     click(Control::NavHome);
     check("Home is one click away", m.page == Page::Home);
     click(Control::SoundToggle);

@@ -529,7 +529,7 @@ void draw_rail(Draw& d) {
         const bool fix = p == Page::Lesson && d.m.fixing;
         const bool on = p == it.page || (it.page == Page::Lessons && p == Page::Lesson && !fix) ||
                         (it.page == Page::Practice && (p == Page::Look || p == Page::Break || fix)) ||
-                        (it.page == Page::Home && (p == Page::Quiz || p == Page::QuestDone));
+                        (it.page == Page::Home && (p == Page::Quiz || p == Page::QuestDone)) || (it.page == Page::Badges && p == Page::Summary);
         const float dim = it.enabled ? 1.0f : 0.4f;
         if (on) d.fill(r, 6, alpha(pal.text, pal.dark ? 0.07f : 0.055f));
         else if (it.enabled && d.hot(it.id)) d.fill(r, 6, alpha(pal.text, (pal.dark ? 0.05f : 0.035f) * d.hover()));
@@ -562,6 +562,7 @@ void draw_status(Draw& d) {
         break;
     case Page::Break: text = "Guess what will happen (keys 1 to 4), then press Enter to go on. Esc goes back."; break;
     case Page::Badges: text = "Your badges and stars stay, even after you close CppSparring."; break;
+    case Page::Summary: text = "Progress is kept on this computer only. Nothing is sent anywhere."; break;
     case Page::Lessons: text = "Pick a lesson. You'll write a little C, and the computer checks it for real."; break;
     case Page::Lesson:
         text = d.m.fixing ? "Find the bug, fix it, then press Run (or F5). Stuck? A hint is one click away."
@@ -1376,6 +1377,7 @@ void draw_badges(Draw& d) {
     const Progress& p = d.m.progress;
     d.card(l.card_a);
     d.header(l.card_a, L"Your badges", L"Earn them by guessing right. They stay, even after you close CppSparring.");
+    d.icon_button(Control::Grownups, l.badges_grownups, L'\xE716', L"For grown-ups", true, false);
     const struct {
         std::wstring value;
         const wchar_t* label;
@@ -1416,6 +1418,164 @@ void draw_badges(Draw& d) {
         d.text(widen(b.name), Rect{r.x + 74, mid - 22, r.w - 84, 22}, 1, 15, kSemibold, got ? pal.text : pal.text2);
         d.para(b.how, Rect{r.x + 74, mid + 1, r.w - 84, 36}, 12, got ? pal.text2 : pal.text3);
     }
+}
+
+// For grown-ups: how practice is going, on one screen, with no grades.
+void draw_summary(Draw& d) {
+    const Palette& pal = d.pal;
+    const Layout& l = d.l;
+    const Progress& p = d.m.progress;
+    d.card(l.card_a);
+    d.header(l.card_a, L"For grown-ups", L"How practice is going, on one screen. Nothing here is a grade.");
+    d.icon_button(Control::SummaryBack, l.summary_back, L'\xE72B', L"Back to badges", true, false);
+
+    // ---- the four numbers
+    const std::size_t rank = rank_index(p.xp);
+    const struct {
+        std::wstring value;
+        std::wstring label;
+        wchar_t g;
+        D2D1_COLOR_F hue;
+    } stats[] = {{std::format(L"{} / {}", days_this_week(p), kWeekGoal), L"Days this week (the goal)", L'\xE787', pal.ok},
+                 {std::to_wstring(p.days.size()), L"Days played in all", L'\xE823', pal.accent},
+                 {std::to_wstring(p.quests_done), std::format(L"Quests ({} boss{} beaten)", p.bosses_beaten, p.bosses_beaten == 1 ? L"" : L"es"),
+                  L'\xE7C1', pal.purple},
+                 {widen(ranks()[rank].name), std::format(L"Rank ({} XP)", p.xp), L'\xE735', d.gold()}};
+    for (std::size_t i = 0; i < 4; ++i) {
+        const Rect& r = l.stats[i];
+        d.fill(r, 8, alpha(stats[i].hue, pal.dark ? 0.12f : 0.08f));
+        d.stroke(r, 8, alpha(stats[i].hue, 0.3f));
+        d.badge(Rect{r.x + 16, r.y + 18, 44, 44}, 22, stats[i].hue, std::wstring(1, stats[i].g), true, 18);
+        d.text(stats[i].value, Rect{r.x + 72, r.y + 14, r.w - 84, 32}, 1, 22, kSemibold, pal.text);
+        d.text(stats[i].label, Rect{r.x + 72, r.y + 46, r.w - 84, 20}, 0, 12.5f, kNormal, pal.text2);
+    }
+
+    auto title = [&](const Rect& r, const wchar_t* s) { d.text(s, Rect{r.x, r.y, r.w, 20}, 0, 11, kSemibold, pal.text3); };
+
+    // ---- this week, Monday to Sunday
+    const Rect& wk = l.summary_week;
+    title(wk, L"THIS WEEK");
+    const std::vector<std::string> week = this_week();
+    const std::string now = today();
+    const wchar_t* names[] = {L"Mon", L"Tue", L"Wed", L"Thu", L"Fri", L"Sat", L"Sun"};
+    const float cell = wk.w / 7;
+    for (std::size_t i = 0; i < week.size() && i < 7; ++i) {
+        const float cx = wk.x + static_cast<float>(i) * cell + cell / 2;
+        const Rect dot{cx - 16, wk.y + 26, 32, 32};
+        if (p.days.count(week[i])) {
+            d.circle(dot, pal.ok);
+            d.glyph(L'\xE73E', dot, 13, pal.dark ? color(0x000000) : color(0xFFFFFF));
+        } else {
+            d.circle(dot, alpha(pal.text, 0.07f));
+        }
+        const bool is_today = week[i] == now;
+        if (is_today) d.stroke(Rect{dot.x - 3, dot.y - 3, 38, 38}, 19, pal.accent, 1.5f);
+        d.text(names[i], Rect{cx - 24, wk.y + 62, 48, 18}, 0, 11.5f, is_today ? kSemibold : kNormal, is_today ? pal.text : pal.text2,
+               DWRITE_TEXT_ALIGNMENT_CENTER);
+    }
+
+    // ---- what's been done
+    const Rect& dn = l.summary_done;
+    title(dn, L"WHAT'S BEEN DONE");
+    int cpp_total = 0, cpp_done = 0, c_total = 0, c_done = 0;
+    for (const Lesson& ls : lessons()) {
+        const int done = p.lessons_done.count(ls.id) ? 1 : 0;
+        if (ls.cpp) {
+            ++cpp_total;
+            cpp_done += done;
+        } else {
+            ++c_total;
+            c_done += done;
+        }
+    }
+    int three = 0;
+    for (const Example& e : examples()) three += stars_for(p, e.file) == 3;
+    const int share = p.guesses > 0 ? static_cast<int>(std::lround(100.0 * p.correct / p.guesses)) : 0;
+    const std::wstring last = p.days.empty() ? std::wstring(L"not yet") : widen(*p.days.rbegin());
+    const struct {
+        wchar_t g;
+        std::wstring what;
+    } done[] = {
+        {L'\xE7C1', std::format(L"{} guesses, {} right ({}%)", p.guesses, p.correct, share)},
+        {L'\xE70F', std::format(L"C++ lessons passed: {} of {}", cpp_done, cpp_total)},
+        {L'\xE70F', std::format(L"C lessons passed: {} of {}", c_done, c_total)},
+        {L'\xE90F', std::format(L"Bugs fixed: {}", p.fixed.size())},
+        {L'\xE897', std::format(L"Quiz cards right: {} of {}", p.quiz_right.size(), quiz_cards().size())},
+        {L'\xE735', std::format(L"Programs with all 3 stars: {} of {}", three, examples().size())},
+        {L'\xE823', L"Last played: " + last},
+    };
+    const float row = std::clamp((dn.h - 24) / 7, 20.0f, 30.0f);
+    for (std::size_t i = 0; i < 7; ++i) {
+        const float y = dn.y + 24 + static_cast<float>(i) * row;
+        d.glyph(done[i].g, Rect{dn.x, y, 20, row}, 12, pal.accent);
+        d.text(done[i].what, Rect{dn.x + 28, y, dn.w - 28, row}, 0, 13.5f, kNormal, pal.text);
+    }
+
+    // ---- the kinds of bug
+    const Rect& kn = l.summary_kinds;
+    title(kn, L"KINDS OF BUGS   (RIGHT · WRONG · FIXED)");
+    const auto& kinds = bug_kinds();
+    const float kh = std::clamp((kn.h - 24) / static_cast<float>(kinds.size()), 30.0f, 44.0f);
+    const BugKind* weakest = nullptr;
+    int weakest_gap = 0;
+    bool any = false;
+    for (std::size_t i = 0; i < kinds.size(); ++i) {
+        const BugKind& k = kinds[i];
+        const auto it = p.kinds.find(k.id);
+        const Progress::KindCount n = it == p.kinds.end() ? Progress::KindCount{} : it->second;
+        const int tries = n.right + n.wrong;
+        any = any || tries > 0 || n.fixed > 0;
+        const Rect r{kn.x, kn.y + 24 + static_cast<float>(i) * kh, kn.w, kh - 4};
+        if (i % 2 == 0) d.fill(r, 6, alpha(pal.text, pal.dark ? 0.035f : 0.025f));
+        d.text(widen(k.name), Rect{r.x + 10, r.y + 2, r.w * 0.44f, r.h * 0.5f}, 0, 13.5f, kSemibold, pal.text);
+        d.text(widen(k.what), Rect{r.x + 10, r.y + r.h * 0.5f, r.w * 0.44f, r.h * 0.48f}, 0, 11, kNormal, pal.text3);
+        // right and wrong as one bar
+        const Rect bar{r.x + r.w * 0.46f, r.y + r.h / 2 - 4, r.w * 0.2f, 8};
+        d.fill(bar, 4, alpha(pal.text, 0.08f));
+        if (tries > 0) {
+            const float rw = bar.w * static_cast<float>(n.right) / static_cast<float>(tries);
+            if (n.right > 0) d.fill(Rect{bar.x, bar.y, rw, bar.h}, 4, pal.ok);
+            if (n.wrong > 0) d.fill(Rect{bar.x + rw, bar.y, bar.w - rw, bar.h}, 4, pal.warn);
+        }
+        d.text(std::format(L"{} · {} · {}", n.right, n.wrong, n.fixed), Rect{bar.right() + 10, r.y, 70, r.h}, 0, 12, kNormal, pal.text2);
+        std::wstring tag = L"Not met yet";
+        D2D1_COLOR_F hue = pal.text3;
+        if (n.wrong >= 2 && n.right * 2 < tries) {
+            tag = L"Keeps tripping up";
+            hue = pal.orange;
+        } else if (n.right >= 2 && n.right >= n.wrong * 3) {
+            tag = L"Getting it";
+            hue = pal.ok;
+        } else if (tries > 0 || n.fixed > 0) {
+            tag = L"Practicing";
+            hue = pal.accent;
+        }
+        const float tw = d.R.measure(tag, 0, 11, kSemibold) + 18;
+        const Rect chip{r.right() - 8 - tw, r.y + r.h / 2 - 10, tw, 20};
+        d.fill(chip, 10, alpha(hue, pal.dark ? 0.2f : 0.12f));
+        d.text(tag, chip, 0, 11, kSemibold, hue, DWRITE_TEXT_ALIGNMENT_CENTER);
+        if (n.wrong >= 2 && n.wrong - n.right > weakest_gap) {
+            weakest_gap = n.wrong - n.right;
+            weakest = &k;
+        }
+    }
+
+    // ---- what to practice next
+    const Rect& tip = l.summary_tip;
+    const D2D1_COLOR_F hue = weakest ? pal.orange : pal.ok;
+    d.fill(tip, 8, alpha(hue, pal.dark ? 0.13f : 0.08f));
+    d.fill(Rect{tip.x, tip.y + 10, 3, tip.h - 20}, 1.5f, hue);
+    d.text(L"WORTH PRACTICING NEXT", Rect{tip.x + 16, tip.y + 10, tip.w - 32, 16}, 0, 10, kSemibold, hue);
+    std::wstring say;
+    if (weakest)
+        say = std::format(L"{} ({}). Break and fix programs that have it in Practice. A wrong guess is a step, not a failure.", widen(weakest->name),
+                          widen(weakest->what));
+    else if (any)
+        say = L"No weak spots right now. Keep the quests going: four days a week is the goal, and a missed day costs nothing.";
+    else
+        say = L"Nothing to show yet. After a Daily Quest or two, this page fills in.";
+    d.text(say, Rect{tip.x + 16, tip.y + 30, tip.w - 32, tip.h - 36}, 0, 13, kNormal, pal.text, DWRITE_TEXT_ALIGNMENT_LEADING, true,
+           DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
 }
 
 // A badge or a new level, popping in under the title bar for a few seconds.
@@ -1971,6 +2131,7 @@ HRESULT Renderer::paint(ID2D1RenderTarget* rt, const Model& model, const Layout&
         case Page::Look: draw_look(d); break;
         case Page::Break: draw_break(d); break;
         case Page::Badges: draw_badges(d); break;
+        case Page::Summary: draw_summary(d); break;
         case Page::Lessons: draw_lessons(d); break;
         case Page::Lesson: draw_lesson(d); break;
         case Page::Quiz: draw_quiz(d); break;

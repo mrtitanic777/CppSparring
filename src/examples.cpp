@@ -272,6 +272,22 @@ int main() {
 }
 )",
          "rock\n"},
+        {5, "pizza_party.cpp", "Pizza party", "Adds up the slices and shares them fairly.", L'\xE716',
+         R"(#include <iostream>
+#include <vector>
+
+int main() {
+    std::vector<int> slices{3, 5, 2, 4};
+    int total = 0;
+    for (std::size_t i = 0; i < slices.size(); i = i + 1) {
+        total = total + slices[i];
+    }
+    double each = total / 4.0;
+    std::cout << "We ate " << total << " slices\n";
+    std::cout << "That is " << each << " slices each\n";
+    return 0;
+}
+)"},
     };
     return all;
 }

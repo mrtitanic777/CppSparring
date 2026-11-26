@@ -179,8 +179,23 @@ Layout compute_layout(const Model& m, float width, float height) {
         break;
     }
 
+    case Page::Summary: {
+        l.card_a = c;
+        l.summary_back = {c.right() - 24 - 160, c.y + 26, 160, 36};
+        const float sw = std::max(0.0f, (c.w - 48 - 3 * 12) / 4);
+        for (int i = 0; i < 4; ++i) l.stats[static_cast<std::size_t>(i)] = {c.x + 24 + static_cast<float>(i) * (sw + 12), c.y + 88, sw, 76};
+        const float y = c.y + 88 + 76 + 20;
+        const float lw = std::floor((c.w - 48 - 20) * 0.42f);
+        l.summary_week = {c.x + 24, y, lw, 84};
+        l.summary_tip = {c.x + 24, c.bottom() - 20 - 92, lw, 92};
+        l.summary_done = {c.x + 24, l.summary_week.bottom() + 16, lw, std::max(0.0f, l.summary_tip.y - 16 - (l.summary_week.bottom() + 16))};
+        l.summary_kinds = {c.x + 24 + lw + 20, y, std::max(0.0f, c.w - 48 - lw - 20), std::max(0.0f, c.bottom() - 20 - y)};
+        break;
+    }
+
     case Page::Badges: {
         l.card_a = c;
+        l.badges_grownups = {c.right() - 24 - 190, c.y + 26, 190, 36};
         const float sw = std::max(0.0f, (c.w - 48 - 3 * 12) / 4);
         for (int i = 0; i < 4; ++i) l.stats[static_cast<std::size_t>(i)] = {c.x + 24 + static_cast<float>(i) * (sw + 12), c.y + 88, sw, 76};
         const float gy = c.y + 88 + 76 + 20;

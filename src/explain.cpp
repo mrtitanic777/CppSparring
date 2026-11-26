@@ -158,6 +158,11 @@ std::string real_life(const MutationToggle& t) {
             return "This \"off by one\" mistake is why a level can say 11 coins when there are only 10. Real programmers make it all the time.";
         return "One wrong sign in a shop's math, and you get charged money instead of getting it back.";
     case Rule::RemoveAssign: return "If a game forgets the line that saves your new score, you're stuck with your old one.";
+    case Rule::StartAt: return "Off by one again: start counting at the wrong number and a game skips player 1, or deals one card too many.";
+    case Rule::MakeInt: return "Money apps keep the part after the dot for a reason: chop it off and a $3.99 snack costs $3.";
+    case Rule::RemoveInit: return "Junk values are why a brand-new game save can show a score of -1431655766. Always give a box a first value.";
+    case Rule::WholeDivide: return "Whole-number division is why sharing 7 cookies between 2 friends in code gives 3 each, and one cookie just vanishes.";
+    case Rule::PastEnd: return "Reading past the end of a list is one of the most common crashes in real games and apps. Some even let hackers in.";
     }
     return "";
 }
@@ -205,6 +210,8 @@ std::string explain_result(const MutationToggle& t, Outcome o, const CompileResu
         if (changed.timed_out && (t.rule == Rule::SwapOp || t.rule == Rule::RemoveAssign))
             return "The loop never reached its end, so it went round and round forever. We stopped it after 5 seconds.";
         if (changed.timed_out) return "The program got stuck and never finished, so we stopped it after 5 seconds.";
+        if (t.rule == Rule::PastEnd)
+            return "The loop tried to read a box past the end of the list. That box doesn't exist, so the program was stopped before it could do any harm.";
         if (t.rule == Rule::RemoveReturn)
             return "The job reached its end with no answer to hand back. The computer didn't know what to do, so the program crashed.";
         return "The program crashed. It stopped suddenly because something went badly wrong inside it.";
@@ -221,6 +228,13 @@ std::string explain_result(const MutationToggle& t, Outcome o, const CompileResu
                 return "The check came out differently, so the loop or the choice ran a different number of times. That's why the answer changed.";
             return "Using " + t.op_to + " instead of " + t.op_from + " made the math come out different, so the answer changed.";
         case Rule::RemoveAssign: return t.name + " kept its old value, because the line that changed it is gone. So the answer changed.";
+        case Rule::StartAt: return "The loop started at " + t.op_to + " instead of " + t.op_from + ", so it ran a different number of times and the answer changed.";
+        case Rule::MakeInt: return t.name + " can only hold whole numbers now, so the part after the dot was chopped off.";
+        case Rule::RemoveInit:
+            return t.name + " never got a first value, so it started out holding junk (-1431655766 here), and the answer came out wrong.";
+        case Rule::WholeDivide:
+            return "Both sides of / were whole numbers, so the computer did whole-number division and threw the leftover away.";
+        case Rule::PastEnd: return "The loop read one box past the end of the list and used whatever it found there.";
         }
         break;
     case Outcome::Same:
@@ -235,6 +249,9 @@ std::string explain_result(const MutationToggle& t, Outcome o, const CompileResu
         case Rule::SwapOp:
             return "Here " + t.op_to + " happened to give the same answer as " + t.op_from + ". In another program it could matter a lot.";
         case Rule::RemoveAssign: return "Nothing used the new value of " + t.name + " afterwards, so deleting that line didn't change what was printed.";
+        case Rule::RemoveInit: return t.name + " got a new value before anything read it, so its first value didn't matter here.";
+        case Rule::MakeInt: return "The numbers in " + t.name + " happened to be whole anyway, so nothing was chopped off.";
+        case Rule::WholeDivide: return "The numbers divided evenly, so there was no leftover to throw away.";
         default: return "It printed exactly the same thing. This change didn't matter in this program.";
         }
     }

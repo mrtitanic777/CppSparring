@@ -108,6 +108,10 @@ CompileResult build_and_run(const std::string& source_path, const std::string& i
 
     std::string cmd = c_lang ? clang_exe(false) + " -x c -std=c17 -D_CRT_SECURE_NO_WARNINGS" : clang_exe(true) + " -std=c++17";
     cmd += " -O0 -g -fno-color-diagnostics -fno-caret-diagnostics";
+    // the same junk every time: a box with no first value holds -1431655766, not whatever was in memory
+    cmd += " -ftrivial-auto-var-init=pattern";
+    // reading past the end of a list stops the program at once, instead of quietly reading junk
+    if (!c_lang) cmd += " -D_MSVC_STL_HARDENING=1";
     if (!include_dir.empty()) cmd += " -I" + quote(include_dir);
     if (!input.empty()) cmd += " -include " + quote(echo_header(c_lang));
     cmd += " -o " + quote(exe) + " " + quote(source_path);
