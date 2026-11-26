@@ -32,7 +32,7 @@ constexpr float kLookRowHeight = 108.0f;
 enum class Page { Home, Practice, Look, Break, Badges, Lessons, Lesson, Quiz, QuestDone };
 
 enum class Control {
-    None, CaptionMinimize, CaptionMaximize, CaptionClose,
+    None, CaptionMinimize, CaptionMaximize, CaptionClose, SoundToggle,
     NavHome, NavPractice, NavLearn, NavBadges,
     HeroQuest, DoorPractice, DoorLessons, DoorBadges,
     SessionBack, StepLook, StepBreak,
@@ -127,6 +127,7 @@ struct Progress {
     int xp = 0;
     int quests_done = 0;
     int bosses_beaten = 0;
+    bool sound = true;                        // the sounds are on (the title bar's speaker button)
 };
 
 // Something to cheer about: a badge, or a level that just opened.
@@ -253,7 +254,7 @@ struct Layout {
     float width = 0, height = 0;
 
     Rect title_bar, app_icon, title_text;
-    Rect caption_minimize, caption_maximize, caption_close;
+    Rect caption_minimize, caption_maximize, caption_close, sound_button;
 
     bool focus = false;   // a quest is running: no rail and no status bar, just the step
     Rect rail, nav_home, nav_practice, nav_learn, nav_badges;

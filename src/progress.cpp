@@ -171,6 +171,7 @@ Progress load_progress() {
         else if (k == "xp") p.xp = std::atoi(v.c_str());
         else if (k == "quests") p.quests_done = std::atoi(v.c_str());
         else if (k == "bosses") p.bosses_beaten = std::atoi(v.c_str());
+        else if (k == "sound") p.sound = v != "0";
         else if (k == "total") {
             const std::size_t bar = v.rfind('|');
             if (bar != std::string::npos) p.totals[v.substr(0, bar)] = std::atoi(v.c_str() + bar + 1);
@@ -182,7 +183,7 @@ Progress load_progress() {
 void save_progress(const Progress& p) {
     std::ostringstream s;
     s << "streak=" << p.streak << "\nbest_streak=" << p.best_streak << "\nguesses=" << p.guesses << "\ncorrect=" << p.correct << "\nxp=" << p.xp
-      << "\nquests=" << p.quests_done << "\nbosses=" << p.bosses_beaten << "\n";
+      << "\nquests=" << p.quests_done << "\nbosses=" << p.bosses_beaten << "\nsound=" << (p.sound ? 1 : 0) << "\n";
     for (const auto& [file, n] : p.totals) s << "total=" << file << "|" << n << "\n";
     for (const std::string& r : p.right) s << "right=" << r << "\n";
     for (const std::string& b : p.badges) s << "badge=" << b << "\n";

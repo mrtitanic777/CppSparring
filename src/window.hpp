@@ -30,4 +30,10 @@ int screenshot(const ShotOptions& o);
 // Uses a throwaway progress file. Returns the number of failures.
 int self_test(const std::wstring& log_path);
 
+// Draws the app icon and saves it as an .ico (src/cppsparring.ico is made with this).
+int make_icon(const std::wstring& out_path);
+
+// Adds CppSparring to the "Open with" list for .cpp files (for this Windows user only; the default program is not changed).
+int register_open_with();
+
 }  // namespace sparring

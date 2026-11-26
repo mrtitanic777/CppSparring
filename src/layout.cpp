@@ -19,7 +19,8 @@ Layout compute_layout(const Model& m, float width, float height) {
     l.caption_close = {width - kCaptionButtonWidth, 0, kCaptionButtonWidth, kTitleBarHeight};
     l.caption_maximize = {width - 2 * kCaptionButtonWidth, 0, kCaptionButtonWidth, kTitleBarHeight};
     l.caption_minimize = {width - 3 * kCaptionButtonWidth, 0, kCaptionButtonWidth, kTitleBarHeight};
-    l.title_text = {44, 0, std::max(0.0f, l.caption_minimize.x - 44), kTitleBarHeight};
+    l.sound_button = {l.caption_minimize.x - 8 - 36, (kTitleBarHeight - 32) / 2, 36, 32};
+    l.title_text = {44, 0, std::max(0.0f, l.sound_button.x - 8 - 44), kTitleBarHeight};
 
     // a running quest takes the whole window: no rail, no status bar, nothing to wander off to
     const bool quest_page = m.page == Page::Look || m.page == Page::Break || m.page == Page::Lesson || m.page == Page::Quiz;

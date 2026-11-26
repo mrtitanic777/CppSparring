@@ -31,6 +31,68 @@ std::string temp_dir() {
 
 std::string quote(const std::string& s) { return "\"" + s + "\""; }
 
+// Built into a program that is given typed answers, so they show up in what it prints, the way a terminal shows what you type:
+// every character the program reads is printed as it is read.
+const char* kEchoCpp = R"(#include <cstdio>
+#include <iostream>
+#include <streambuf>
+namespace spar_echo {
+struct Buf : std::streambuf {
+    char c = 0;
+    int underflow() override {
+        const int got = std::getchar();
+        if (got == EOF) return traits_type::eof();
+        c = static_cast<char>(got);
+        std::cout.put(c);
+        setg(&c, &c, &c + 1);
+        return static_cast<unsigned char>(c);
+    }
+};
+inline Buf buf;
+inline const bool installed = (std::cin.rdbuf(&buf), true);
+}
+)";
+
+const char* kEchoC = R"(#include <stdarg.h>
+#include <stdio.h>
+static int spar_scanf(const char* fmt, ...) {
+    char line[1024];
+    if (!fgets(line, sizeof line, stdin)) return EOF;
+    fputs(line, stdout);
+    va_list ap;
+    va_start(ap, fmt);
+    const int n = vsscanf(line, fmt, ap);
+    va_end(ap);
+    return n;
+}
+static int spar_getchar(void) {
+    const int c = getchar();
+    if (c != EOF) putchar(c);
+    return c;
+}
+static char* spar_fgets(char* s, int n, FILE* f) {
+    char* r = fgets(s, n, f);
+    if (r && f == stdin) fputs(r, stdout);
+    return r;
+}
+#define scanf spar_scanf
+#define getchar spar_getchar
+#define fgets spar_fgets
+)";
+
+std::string write_header(const char* name, const char* text) {
+    const stdfs::path p = stdfs::path(temp_dir()) / name;
+    std::ofstream(p, std::ios::binary | std::ios::trunc) << text;
+    return p.string();
+}
+
+std::string echo_header(bool c_lang) {
+    // written once per run of CppSparring (a static is made once, even with two builds starting together)
+    static const std::string c_path = write_header("spar_echo_c.h", kEchoC);
+    static const std::string cpp_path = write_header("spar_echo_cpp.h", kEchoCpp);
+    return c_lang ? c_path : cpp_path;
+}
+
 // A name no other run uses: a replay and a challenge can build at the same time.
 std::string unique(const std::string& tag) {
     static std::atomic<unsigned> n{0};
@@ -44,9 +106,10 @@ CompileResult build_and_run(const std::string& source_path, const std::string& i
     const std::string exe = (stdfs::path(temp_dir()) / ("cppsparring_" + unique(tag) + ".exe")).string();
     stdfs::remove(exe, ec);
 
-    std::string cmd = c_lang ? "clang -x c -std=c17 -D_CRT_SECURE_NO_WARNINGS" : "clang++ -std=c++17";
+    std::string cmd = c_lang ? clang_exe(false) + " -x c -std=c17 -D_CRT_SECURE_NO_WARNINGS" : clang_exe(true) + " -std=c++17";
     cmd += " -O0 -g -fno-color-diagnostics -fno-caret-diagnostics";
     if (!include_dir.empty()) cmd += " -I" + quote(include_dir);
+    if (!input.empty()) cmd += " -include " + quote(echo_header(c_lang));
     cmd += " -o " + quote(exe) + " " + quote(source_path);
     ProcessResult c = run_process(cmd, 120000);
     r.compile_errors = c.output;
@@ -63,6 +126,36 @@ CompileResult build_and_run(const std::string& source_path, const std::string& i
 }
 
 }  // namespace
+
+namespace {
+
+std::string find_clang_dir() {
+    wchar_t found[MAX_PATH] = {};
+    if (SearchPathW(nullptr, L"clang++.exe", nullptr, MAX_PATH, found, nullptr)) return stdfs::path(found).parent_path().string();
+    // Visual Studio's own Clang ("C++ Clang tools for Windows")
+    wchar_t pf86[MAX_PATH] = {};
+    if (GetEnvironmentVariableW(L"ProgramFiles(x86)", pf86, MAX_PATH)) {
+        const stdfs::path vswhere = stdfs::path(pf86) / L"Microsoft Visual Studio" / L"Installer" / L"vswhere.exe";
+        std::error_code ec;
+        if (stdfs::exists(vswhere, ec)) {
+            const ProcessResult r = run_process("\"" + vswhere.string() + "\" -latest -products * -property installationPath", 10000, false);
+            std::string dir = r.output.substr(0, r.output.find_first_of("\r\n"));
+            const stdfs::path llvm = stdfs::path(dir) / "VC" / "Tools" / "Llvm" / "x64" / "bin";
+            if (!dir.empty() && stdfs::exists(llvm / "clang++.exe", ec)) return llvm.string();
+        }
+    }
+    std::error_code ec;
+    if (stdfs::exists("C:\\Program Files\\LLVM\\bin\\clang++.exe", ec)) return "C:\\Program Files\\LLVM\\bin";
+    return {};
+}
+
+}  // namespace
+
+std::string clang_exe(bool cpp) {
+    static const std::string dir = find_clang_dir();
+    const std::string name = cpp ? "clang++.exe" : "clang.exe";
+    return dir.empty() ? name : "\"" + (stdfs::path(dir) / name).string() + "\"";
+}
 
 bool reads_input(const std::string& s) {
     for (const char* word : {"cin", "scanf", "getline", "getchar", "fgets", "gets("})

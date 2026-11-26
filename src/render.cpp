@@ -482,6 +482,9 @@ void draw_title_bar(Draw& d) {
     std::wstring title = L"CppSparring";
     if (!d.m.source_name.empty()) title += L" — " + widen(d.m.source_name);
     d.text(title, l.title_text, 0, 12, kNormal, d.m.active ? pal.text : pal.text3);
+    // the sounds: on or muted
+    if (d.hot(Control::SoundToggle)) d.fill(l.sound_button, 4, alpha(pal.dark ? D2D1::ColorF(1, 1, 1) : D2D1::ColorF(0, 0, 0), 0.06f));
+    d.glyph(d.m.progress.sound ? L'\xE767' : L'\xE74F', l.sound_button, 14, d.m.progress.sound ? pal.text : pal.text3);
 
     const struct {
         Control id;

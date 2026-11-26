@@ -36,6 +36,9 @@ add_executable(cppsparring WIN32
     src/quiz.hpp
     src/quest.cpp
     src/quest.hpp
+    src/sound.cpp
+    src/sound.hpp
+    src/app.rc
 )
 
 # the lessons (from CodingTeacher's LearnC) sit next to the program, so they can be edited without rebuilding
@@ -57,4 +60,5 @@ target_link_libraries(cppsparring PRIVATE
     shell32
     shlwapi
     comctl32
+    winmm
 )

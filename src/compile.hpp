@@ -17,6 +17,9 @@ ProcessResult run_process(const std::string& command_line, unsigned long timeout
                           const std::function<void(const char*, std::size_t)>& on_chunk = {}, const std::string& cwd = {},
                           const std::string& input = {});
 
+// The Clang to use, quoted for a command line: on the PATH, else inside Visual Studio, else in C:\Program Files\LLVM.
+std::string clang_exe(bool cpp);
+
 // Whether a program asks the person running it to type something.
 bool reads_input(const std::string& source);
 

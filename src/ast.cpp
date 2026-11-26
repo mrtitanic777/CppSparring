@@ -209,14 +209,14 @@ struct Walker {
 std::vector<AstNode> parse_ast(const std::string& source_path, std::string* error) {
     const auto slash = source_path.find_last_of("/\\");
     const std::string dir = slash == std::string::npos ? std::string(".") : source_path.substr(0, slash);
-    const std::string cmd = "clang++ -x c++ -std=c++17 -fsyntax-only -Xclang -ast-dump=json -I\"" + dir + "\" \"" + source_path + "\"";
+    const std::string cmd = clang_exe(true) + " -x c++ -std=c++17 -fsyntax-only -Xclang -ast-dump=json -I\"" + dir + "\" \"" + source_path + "\"";
 
     Scanner scanner(base_lower(source_path));
     const ProcessResult pr = run_process(cmd, 120000, false, [&](const char* p, std::size_t n) { scanner.feed(p, n); });
 
     std::vector<AstNode> nodes;
     if (!pr.started) {
-        if (error) *error = "Clang could not be started (is clang++ on the PATH?)";
+        if (error) *error = "Clang wasn't found. Add \"C++ Clang tools for Windows\" in the Visual Studio Installer.";
         return nodes;
     }
     Walker walker{nodes};

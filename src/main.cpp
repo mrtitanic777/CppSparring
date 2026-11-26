@@ -17,6 +17,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {
     if (argv) LocalFree(argv);
 
     if (!args.empty() && args[0] == L"--selftest" && args.size() >= 2) return sparring::self_test(args[1]);
+    if (!args.empty() && args[0] == L"--make-icon" && args.size() >= 2) return sparring::make_icon(args[1]);
+    if (!args.empty() && args[0] == L"--register-open-with") return sparring::register_open_with();
     if (!args.empty() && args[0] == L"--screenshot" && args.size() >= 2) {
         sparring::ShotOptions o;
         o.out_png = args[1];

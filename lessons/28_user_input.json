@@ -4,10 +4,12 @@
     "So far the program does all the talking. scanf lets the USER talk back by typing something.",
     "scanf(\"%d\", &age) reads a number the user types and stores it in age.",
     "Notice the & — scanf needs the ADDRESS of the box so it knows where to put what it reads. This is why you learned pointers first!",
-    "Note: this practice window can't easily take typed input while it runs, so just get it to compile and run here. To truly try it, run the program in a terminal and type a number.",
+    "Here, what the program reads comes from the answers box under the Run button. It starts with 7. Try other numbers!",
     "The pattern is the important part to remember."
   ],
-  "task": "Fill in the scanf so it reads a number into age. (It just needs to compile and run here.)",
+  "task": "Fill in the scanf so it reads a number into age. With the answer 7, it shows what you typed and then:  You said you are 7.",
+  "expected_output": "Type your age: 7\nYou said you are 7.",
+  "input": "7",
   "starter_code": "#include <stdio.h>\n\nint main() {\n    int age = 0;\n    printf(\"Type your age: \");\n\n    // read a number into age with scanf\n\n    printf(\"You said you are %d.\\n\", age);\n    return 0;\n}\n",
   "hint": "Pass the format and the ADDRESS of age:\n\n    scanf(\"%d\", &age);"
 }

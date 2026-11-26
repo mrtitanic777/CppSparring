@@ -2,6 +2,7 @@
 #include <windowsx.h>
 #include <dwmapi.h>
 #include <shellapi.h>
+#include <shlobj.h>
 #include <shobjidl.h>
 #include <wincodec.h>
 #include <commctrl.h>
@@ -28,6 +29,7 @@
 #include "quiz.hpp"
 #include "render.hpp"
 #include "replay.hpp"
+#include "sound.hpp"
 #include "window.hpp"
 
 namespace sparring {
@@ -203,6 +205,7 @@ struct App {
         for (Cheer& c : more) model.cheers.push_back(std::move(c));
         if (model.cheer_t < 0) {
             model.cheer_t = 0;
+            play(Sound::Cheer);
             if (animations && model.page != Page::Break) model.confetti = 0;
         }
         kick(true);
@@ -513,6 +516,7 @@ struct App {
             if (model.cheer_t > kCheerSeconds) {
                 if (!model.cheers.empty()) model.cheers.erase(model.cheers.begin());
                 model.cheer_t = model.cheers.empty() ? -1.0f : 0.0f;
+                if (!model.cheers.empty()) play(Sound::Cheer);
             }
         }
         const bool clock = boss_clock_running();
@@ -582,6 +586,7 @@ struct App {
         if (layout.caption_close.contains(x, y)) return Control::CaptionClose;
         if (layout.caption_maximize.contains(x, y)) return Control::CaptionMaximize;
         if (layout.caption_minimize.contains(x, y)) return Control::CaptionMinimize;
+        if (layout.sound_button.contains(x, y)) return Control::SoundToggle;
         if (layout.nav_home.contains(x, y)) return Control::NavHome;
         if (layout.nav_practice.contains(x, y)) return Control::NavPractice;
         if (layout.nav_badges.contains(x, y)) return Control::NavBadges;
@@ -721,6 +726,12 @@ struct App {
         case Control::CaptionClose: PostMessageW(hwnd, WM_CLOSE, 0, 0); return;
         case Control::CaptionMaximize: ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE); return;
         case Control::CaptionMinimize: ShowWindow(hwnd, SW_MINIMIZE); return;
+        case Control::SoundToggle:
+            model.progress.sound = !model.progress.sound;
+            set_sound_on(model.progress.sound);
+            save_progress(model.progress);
+            if (model.progress.sound) play(Sound::Right);
+            break;
         case Control::NavHome:
             close_replay();
             model.page = Page::Home;
@@ -788,6 +799,7 @@ struct App {
             if (model.quiz_choice < 0 && i >= 0 && model.quiz >= 0) {
                 model.quiz_choice = i;
                 const bool right = answer_order(static_cast<std::size_t>(model.quiz))[static_cast<std::size_t>(i)] == 0;
+                play(right ? Sound::Right : Sound::Wrong);
                 const int before = model.progress.xp;
                 cheer(record_quiz(model.progress, quiz_cards()[static_cast<std::size_t>(model.quiz)].id, right));
                 if (QuestStep* s = step(); s && s->kind == StepKind::Quiz) {
@@ -807,6 +819,7 @@ struct App {
             return;
         case Control::ChestOpen:
             model.quest.chest_open = true;
+            play(Sound::Chest);
             if (animations) {
                 model.confetti = 0;
                 kick();
@@ -992,6 +1005,7 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
         if (layout.caption_close.contains(x, y)) return HTCLOSE;
         if (layout.caption_maximize.contains(x, y)) return HTMAXBUTTON;
         if (layout.caption_minimize.contains(x, y)) return HTMINBUTTON;
+        if (layout.sound_button.contains(x, y)) return HTCLIENT;
         if (y < kTitleBarHeight) return HTCAPTION;
         return HTCLIENT;
     }
@@ -1217,6 +1231,7 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
             s->done = s->right = true;
             model.quest.xp += model.progress.xp - before;
         }
+        if (passed) play(Sound::Right);   // (no sound for a failed try: trying is good)
         if (passed && animations) {
             model.confetti = 0;
             kick();
@@ -1294,6 +1309,7 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
                     }
                 }
                 const int before = model.progress.xp;
+                if (r->index == static_cast<std::size_t>(model.current)) play(right ? Sound::Right : Sound::Wrong);
                 cheer(record_guess(model.progress, model.source_name, model.toggles[r->index], right, static_cast<Outcome>(c.truth), bonus));
                 if (in_quest) {
                     s->done = true;
@@ -1483,6 +1499,114 @@ int screenshot(const ShotOptions& o) {
     return result;
 }
 
+// The app's icon, drawn here and saved as an .ico with every size Windows asks for (each as a PNG).
+int make_icon(const std::wstring& out_path) {
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    int result = 1;
+    {
+        Renderer renderer;
+        ComPtr<IWICImagingFactory> wic;
+        if (!renderer.init() || FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&wic)))) return 1;
+        const Palette pal = make_palette(false, 0);
+        const UINT sizes[] = {16, 24, 32, 48, 64, 128, 256};
+        std::vector<std::vector<unsigned char>> pngs;
+        for (UINT s : sizes) {
+            ComPtr<IWICBitmap> bitmap;
+            ComPtr<ID2D1RenderTarget> rt;
+            wic->CreateBitmap(s, s, GUID_WICPixelFormat32bppPBGRA, WICBitmapCacheOnLoad, &bitmap);
+            const D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+                D2D1_RENDER_TARGET_TYPE_SOFTWARE, D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED), 96, 96);
+            if (!bitmap || FAILED(renderer.d2d->CreateWicBitmapRenderTarget(bitmap.Get(), props, &rt))) return 1;
+            const float f = static_cast<float>(s);
+            rt->BeginDraw();
+            rt->Clear(D2D1::ColorF(0, 0, 0, 0));
+            ComPtr<ID2D1GradientStopCollection> stops;
+            const D2D1_GRADIENT_STOP gs[2] = {{0.0f, pal.hero_a}, {1.0f, pal.hero_b}};
+            rt->CreateGradientStopCollection(gs, 2, &stops);
+            ComPtr<ID2D1LinearGradientBrush> gradient;
+            rt->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties(D2D1::Point2F(0, 0), D2D1::Point2F(f, f)), stops.Get(), &gradient);
+            const float inset = s <= 24 ? 0.0f : f * 0.04f;
+            rt->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(inset, inset, f - inset, f - inset), f * 0.22f, f * 0.22f), gradient.Get());
+            ComPtr<ID2D1SolidColorBrush> brush;
+            rt->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1), &brush);
+            const bool tiny = s <= 24;
+            const std::wstring braces = tiny ? L"{}" : L"{ }";
+            IDWriteTextFormat* mono = renderer.format(3, f * (tiny ? 0.62f : 0.5f), DWRITE_FONT_WEIGHT_BOLD, DWRITE_TEXT_ALIGNMENT_CENTER,
+                                                      DWRITE_PARAGRAPH_ALIGNMENT_CENTER, false);
+            rt->DrawText(braces.c_str(), static_cast<UINT32>(braces.size()), mono, D2D1::RectF(0, -f * 0.04f, f, f * 0.96f), brush.Get());
+            if (!tiny) {
+                brush->SetColor(color(0xFFC83D));
+                IDWriteTextFormat* icons = renderer.format(2, f * 0.34f, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER,
+                                                           DWRITE_PARAGRAPH_ALIGNMENT_CENTER, false);
+                const wchar_t bolt = L'\xE945';
+                rt->DrawText(&bolt, 1, icons, D2D1::RectF(0, 0, f, f), brush.Get());
+            }
+            if (FAILED(rt->EndDraw())) return 1;
+
+            ComPtr<IStream> stream;
+            CreateStreamOnHGlobal(nullptr, TRUE, &stream);
+            ComPtr<IWICBitmapEncoder> encoder;
+            ComPtr<IWICBitmapFrameEncode> frame;
+            if (FAILED(wic->CreateEncoder(GUID_ContainerFormatPng, nullptr, &encoder)) || FAILED(encoder->Initialize(stream.Get(), WICBitmapEncoderNoCache)) ||
+                FAILED(encoder->CreateNewFrame(&frame, nullptr)) || FAILED(frame->Initialize(nullptr)) || FAILED(frame->WriteSource(bitmap.Get(), nullptr)) ||
+                FAILED(frame->Commit()) || FAILED(encoder->Commit()))
+                return 1;
+            STATSTG st{};
+            stream->Stat(&st, STATFLAG_NONAME);
+            std::vector<unsigned char> bytes(static_cast<std::size_t>(st.cbSize.QuadPart));
+            const LARGE_INTEGER zero{};
+            stream->Seek(zero, STREAM_SEEK_SET, nullptr);
+            ULONG got = 0;
+            stream->Read(bytes.data(), static_cast<ULONG>(bytes.size()), &got);
+            pngs.push_back(std::move(bytes));
+        }
+        // the .ico: a header, one entry per size, then the PNGs
+        std::vector<unsigned char> ico;
+        auto put16 = [&](unsigned v) { ico.push_back(static_cast<unsigned char>(v & 0xFF)); ico.push_back(static_cast<unsigned char>(v >> 8)); };
+        auto put32 = [&](unsigned v) { put16(v & 0xFFFF); put16(v >> 16); };
+        put16(0);
+        put16(1);
+        put16(static_cast<unsigned>(pngs.size()));
+        unsigned offset = 6 + 16 * static_cast<unsigned>(pngs.size());
+        for (std::size_t i = 0; i < pngs.size(); ++i) {
+            ico.push_back(static_cast<unsigned char>(sizes[i] >= 256 ? 0 : sizes[i]));
+            ico.push_back(static_cast<unsigned char>(sizes[i] >= 256 ? 0 : sizes[i]));
+            ico.push_back(0);
+            ico.push_back(0);
+            put16(1);
+            put16(32);
+            put32(static_cast<unsigned>(pngs[i].size()));
+            put32(offset);
+            offset += static_cast<unsigned>(pngs[i].size());
+        }
+        for (const auto& p : pngs) ico.insert(ico.end(), p.begin(), p.end());
+        std::ofstream(std::filesystem::path(out_path), std::ios::binary).write(reinterpret_cast<const char*>(ico.data()), static_cast<std::streamsize>(ico.size()));
+        result = 0;
+    }
+    CoUninitialize();
+    return result;
+}
+
+int register_open_with() {
+    wchar_t exe[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    const std::wstring app = L"Software\\Classes\\Applications\\cppsparring.exe";
+    const std::wstring command = L"\"" + std::wstring(exe) + L"\" \"%1\"";
+    const std::wstring icon = std::wstring(exe) + L",0";
+    auto set = [](const std::wstring& key, const wchar_t* name, const std::wstring& value) {
+        return RegSetKeyValueW(HKEY_CURRENT_USER, key.c_str(), name, REG_SZ, value.c_str(),
+                               static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t))) == ERROR_SUCCESS;
+    };
+    bool ok = set(app, L"FriendlyAppName", L"CppSparring") && set(app + L"\\shell\\open\\command", nullptr, command) &&
+              set(app + L"\\DefaultIcon", nullptr, icon);
+    for (const wchar_t* ext : {L".cpp", L".cxx", L".cc"}) {
+        ok = ok && set(app + L"\\SupportedTypes", ext, L"");
+        ok = ok && set(std::wstring(L"Software\\Classes\\") + ext + L"\\OpenWithList\\cppsparring.exe", nullptr, L"");
+    }
+    SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+    return ok ? 0 : 1;
+}
+
 int self_test(const std::wstring& log_path) {
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     std::error_code ec;
@@ -1506,6 +1630,7 @@ int self_test(const std::wstring& log_path) {
     App& a = *app;
     Model& m = a.model;
     m.progress = load_progress();
+    set_sound_on(false);   // a test makes no noise
     a.relayout();
 
     std::ofstream log{std::filesystem::path(log_path)};
@@ -1647,6 +1772,9 @@ int self_test(const std::wstring& log_path) {
     check("Badges shows the quest badge earned", m.page == Page::Badges && m.progress.badges.count("quest1") > 0);
     click(Control::NavHome);
     check("Home is one click away", m.page == Page::Home);
+    click(Control::SoundToggle);
+    check("the speaker button mutes, and it is remembered", !m.progress.sound && !load_progress().sound);
+    check("the program carries its icon", LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON, 32, 32, 0) != nullptr);
 
     log << "\n" << passes << " passed, " << fails << " failed\n";
     DestroyWindow(hwnd);
@@ -1666,7 +1794,8 @@ int run_window(const std::wstring& file) {
     wc.lpfnWndProc = wnd_proc;
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+    wc.hIcon = static_cast<HICON>(LoadImageW(wc.hInstance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0));
+    wc.hIconSm = static_cast<HICON>(LoadImageW(wc.hInstance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0));
     wc.lpszClassName = kClassName;
     RegisterClassExW(&wc);
 
@@ -1682,6 +1811,7 @@ int run_window(const std::wstring& file) {
                                 wc.hInstance, app.get());
     if (!hwnd) return 1;
     app->model.progress = load_progress();
+    set_sound_on(app->model.progress.sound);
     app->model.pick_level = highest_open_level(app->model.progress);
     app->relayout();
     if (!file.empty()) app->load_file(narrow(file));
