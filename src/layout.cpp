@@ -260,6 +260,18 @@ Layout compute_layout(const Model& m, float width, float height) {
         break;
     }
 
+    case Page::Setup: {
+        l.setup_card = centered(std::min(860.0f, c.w), c.h);
+        const Rect& s = l.setup_card;
+        for (int i = 0; i < 3; ++i) l.setup_rows[static_cast<std::size_t>(i)] = {s.x + 32, s.y + 104 + static_cast<float>(i) * 52, s.w - 64, 44};
+        const float steps_y = l.setup_rows[2].bottom() + 24;
+        l.setup_recheck = {s.x + 32, s.bottom() - 68, 200, 44};
+        l.setup_installer = {l.setup_recheck.right() + 12, s.bottom() - 68, 280, 44};
+        l.setup_continue = {s.right() - 32 - 170, s.bottom() - 68, 170, 44};
+        l.setup_steps = {s.x + 32, steps_y, s.w - 64, std::max(0.0f, l.setup_recheck.y - 20 - steps_y)};
+        break;
+    }
+
     case Page::QuestDone: {
         l.done_card = centered(std::min(680.0f, c.w), c.h);
         const Rect& d = l.done_card;

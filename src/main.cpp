@@ -38,6 +38,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {
             else if (args[i] == L"--quest" && more) o.quest_step = std::stoi(args[++i]);
             else if (args[i] == L"--boss") o.boss = true;
             else if (args[i] == L"--chest") o.chest = true;
+            else if (args[i] == L"--setup" && more) o.setup = std::stoi(args[++i]);
         }
         return sparring::screenshot(o);
     }

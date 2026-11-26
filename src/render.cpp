@@ -553,18 +553,23 @@ void draw_status(Draw& d) {
     D2D1_COLOR_F dot = pal.ok;
     std::string text;
     switch (m.page) {
-    case Page::Home: text = "Press the big button to start. Or open a door below."; break;
+    case Page::Home: text = "Press the big button (or Enter) to start. Or open a door below."; break;
     case Page::Practice: text = "Pick a program to play with."; break;
     case Page::Look:
         text = m.replay_open ? "Press play, or step through one line at a time with the arrow buttons."
                              : "Read what's inside. Click one on the right to find it in the code.";
         break;
-    case Page::Break: text = "Guess what will happen, then see if you were right."; break;
+    case Page::Break: text = "Guess what will happen (keys 1 to 4), then press Enter to go on. Esc goes back."; break;
     case Page::Badges: text = "Your badges and stars stay, even after you close CppSparring."; break;
     case Page::Lessons: text = "Pick a lesson. You'll write a little C, and the computer checks it for real."; break;
     case Page::Lesson: text = "Write the code, then press Run (or F5). Stuck? A hint is one click away."; break;
-    case Page::Quiz: text = "Answer from memory. Remembering is what makes it stick."; break;
+    case Page::Quiz: text = "Answer from memory (keys A to D). Remembering is what makes it stick."; break;
     case Page::QuestDone: text = "Quest done! Open the chest, then go again or take a break."; break;
+    case Page::Setup: text = "CppSparring needs Microsoft's free C++ tools to build programs."; break;
+    }
+    if (m.tools == Tools::Missing && m.page != Page::Setup) {
+        dot = pal.warn;
+        text = "Setup isn't finished, so programs can't be built yet. Press Finish setting up on Home.";
     }
     if (m.importing) {
         dot = pal.accent;
@@ -668,7 +673,8 @@ void draw_hero(Draw& d, const Rect& r) {
     const float h = d.hot(Control::HeroQuest) ? d.hover() : 0.0f;
     d.shadow(b, 32, 0.1f + 0.08f * h);
     d.fill(b, 32, mix(white, color(0xF0F0F0), d.down(Control::HeroQuest) ? 1.0f : h * 0.6f));
-    const std::wstring label = resume ? L"Continue quest" : until == 0 ? L"Fight the Bug Boss" : L"Start today's quest";
+    std::wstring label = resume ? L"Continue quest" : until == 0 ? L"Fight the Bug Boss" : L"Start today's quest";
+    if (m.tools == Tools::Missing) label = L"Finish setting up";
     const float lw = d.R.measure(label, 1, 20, kSemibold);
     const float x0 = b.x + (b.w - lw - 34) / 2;
     d.glyph(until == 0 && !resume ? L'\xEBE8' : L'\xE768', Rect{x0, b.y, 22, b.h}, 17, pal.hero_a);
@@ -1318,6 +1324,10 @@ void draw_break(Draw& d) {
         d.text(widen(outcome_title(o)), Rect{r.x + 68, mid - 22, r.w - 80, 24}, 0, 15, kSemibold, alpha(pal.text, dim));
         d.text(widen(outcome_sub(o)), Rect{r.x + 68, mid + 2, r.w - 80, 20}, 0, 13, kNormal, alpha(pal.text2, dim));
         const Rect corner{r.right() - 30, r.y + 8, 22, 22};
+        if (can_guess) {   // the key that picks it
+            d.stroke(corner, 5, alpha(pal.text, 0.25f));
+            d.text(std::to_wstring(i + 1), corner, 1, 11, kSemibold, pal.text3, DWRITE_TEXT_ALIGNMENT_CENTER);
+        }
         if (truth) {
             d.circle(corner, pal.ok);
             d.glyph(L'\xE73E', corner, 11, pal.dark ? color(0x000000) : color(0xFFFFFF));
@@ -1808,6 +1818,85 @@ void draw_quest_done(Draw& d) {
     d.button(Control::QuestAgain, l.done_again, L"Another quest  →", true, true);
 }
 
+// ---- setup: what this computer needs before programs can be built
+void draw_setup(Draw& d) {
+    const Palette& pal = d.pal;
+    const Model& m = d.m;
+    const Layout& l = d.l;
+    const Rect& c = l.setup_card;
+    const ToolCheck& t = m.tool_check;
+    const bool checking = m.tools == Tools::Checking;
+    const bool ready = m.tools == Tools::Ready;
+    d.card(c);
+    d.badge(Rect{c.x + 32, c.y + 28, 52, 52}, 26, ready ? pal.ok : pal.accent, std::wstring(1, ready ? L'\xE73E' : L'\xE90F'), true, 22);
+    d.text(ready ? L"All set!" : checking ? L"Checking this computer…" : L"One thing before you start", Rect{c.x + 100, c.y + 26, c.w - 132, 32}, 1, 24,
+           kSemibold, pal.text);
+    d.text(ready ? L"This computer can build and run programs. Have fun!"
+                 : L"CppSparring builds and runs real programs, so it needs Microsoft's free C++ tools.",
+           Rect{c.x + 100, c.y + 58, c.w - 132, 22}, 0, 14, kNormal, pal.text2);
+
+    const struct {
+        const wchar_t* what;
+        bool ok;
+        std::wstring note;
+    } rows[] = {
+        {L"Visual Studio with C++", t.visual_studio, t.visual_studio ? L"Found" : L"Not found"},
+        {L"Clang (C++ Clang tools for Windows)", t.clang, t.clang ? L"Found" : L"Not found"},
+        {L"A test program builds and runs", t.builds,
+         t.builds ? L"Works" : !t.clang ? L"Needs Clang first" : widen(t.problem.empty() ? std::string("It didn't build") : t.problem)},
+    };
+    for (std::size_t i = 0; i < 3; ++i) {
+        const Rect& r = l.setup_rows[i];
+        d.fill(r, 8, alpha(pal.text, pal.dark ? 0.04f : 0.03f));
+        const Rect dot{r.x + 12, r.y + 11, 22, 22};
+        if (checking) {
+            d.circle(dot, alpha(pal.accent, 0.3f));
+            d.glyph(L'\xE895', dot, 11, pal.accent);
+        } else {
+            d.circle(dot, rows[i].ok ? pal.ok : pal.error);
+            d.glyph(rows[i].ok ? L'\xE73E' : L'\xE711', dot, 10, pal.dark ? color(0x000000) : color(0xFFFFFF));
+        }
+        d.text(rows[i].what, Rect{r.x + 46, r.y, r.w * 0.5f, r.h}, 0, 14, kSemibold, pal.text);
+        if (!checking)
+            d.text(rows[i].note, Rect{r.x + r.w * 0.5f, r.y, r.w * 0.5f - 14, r.h}, 0, 12, kNormal, rows[i].ok ? pal.ok : pal.text2,
+                   DWRITE_TEXT_ALIGNMENT_TRAILING);
+    }
+
+    if (!ready && !checking) {
+        const Rect& s = l.setup_steps;
+        d.text(L"HOW TO GET THEM", Rect{s.x, s.y, s.w, 16}, 0, 11, kSemibold, pal.text3);
+        const wchar_t* steps[] = {
+            L"Get Visual Studio Community. It's free from Microsoft.",
+            L"In the Visual Studio Installer, tick \"Desktop development with C++\".",
+            L"Open \"Individual components\" and tick \"C++ Clang tools for Windows\".",
+            L"Press Install (or Modify), wait until it's done, then press Check again.",
+        };
+        // start the list at the first step still needed
+        const int from = t.visual_studio ? 2 : 0;
+        float y = s.y + 24;
+        for (int i = from; i < 4; ++i) {
+            const Rect num{s.x, y + 2, 26, 26};
+            d.circle(num, i == from ? pal.accent : alpha(pal.text, 0.12f));
+            d.text(std::to_wstring(i - from + 1), num, 1, 12, kSemibold, i == from ? pal.accent_text : pal.text2, DWRITE_TEXT_ALIGNMENT_CENTER);
+            d.text(steps[i], Rect{s.x + 38, y, s.w - 38, 30}, 0, 14, kNormal, pal.text);
+            y += 38;
+        }
+        d.fill(Rect{s.x, y + 6, s.w, 40}, 8, alpha(pal.warn, pal.dark ? 0.12f : 0.1f));
+        d.glyph(L'\xE7BA', Rect{s.x + 10, y + 6, 22, 40}, 13, pal.warn);
+        d.text(L"Ask a grown-up to help: it's a big download, and Windows will ask for permission to install.", Rect{s.x + 40, y + 6, s.w - 50, 40}, 0, 13,
+               kNormal, pal.text);
+    }
+
+    if (ready) {
+        d.button(Control::SetupContinue, Rect{l.setup_recheck.x, l.setup_recheck.y, l.setup_card.w - 64, 44}, L"Let's go!  →", true, true);
+        return;
+    }
+    d.icon_button(Control::SetupRecheck, l.setup_recheck, L'\xE72C', checking ? L"Checking…" : L"Check again", !checking, true);
+    d.icon_button(Control::SetupInstaller, l.setup_installer, L'\xE896',
+                  t.installer.empty() ? L"Get Visual Studio" : L"Open Visual Studio Installer", !checking, false);
+    d.button(Control::SetupContinue, l.setup_continue, L"Look around anyway", !checking, false);
+}
+
 // Paper bits flying out of the banner when a guess is right.
 void draw_confetti(Draw& d, float x0, float y0, float t) {
     if (t < 0) return;
@@ -1860,6 +1949,7 @@ HRESULT Renderer::paint(ID2D1RenderTarget* rt, const Model& model, const Layout&
         case Page::Lesson: draw_lesson(d); break;
         case Page::Quiz: draw_quiz(d); break;
         case Page::QuestDone: draw_quest_done(d); break;
+        case Page::Setup: draw_setup(d); break;
         }
     });
     draw_quest_bar(d);

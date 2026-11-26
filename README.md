@@ -53,7 +53,11 @@ The program is `build\cppsparring.exe`. The `lessons` folder is copied next to i
 
 ## Using it
 
-- Start it and press **Start today's quest**, or pick a program in **Practice**.
+- When it starts, CppSparring checks that this computer can build programs. If Visual Studio or Clang is missing, it shows
+  what to install, step by step, with a button that opens the Visual Studio Installer.
+- Press **Start today's quest**, or pick a program in **Practice**.
+- Keys: **1–4** answer (A–D on quiz cards), **Enter** goes on, **Esc** goes back, **F5** runs a lesson, **Space** plays and
+  pauses Watch it run.
 - Drag a `.cpp` file onto the window, or open one with **Open my own file**.
 - `cppsparring --register-open-with` adds CppSparring to the **Open with** menu for `.cpp` files (for your Windows user only; your
   default program for `.cpp` files stays the same).

@@ -23,6 +23,7 @@ struct ShotOptions {
     int quest_step = -1;           // >= 0: a quest is under way at this step
     bool boss = false;             // the quest is a Bug Boss
     bool chest = false;            // page questdone: the chest is open
+    int setup = 0;                 // page setup: 0 nothing installed, 1 Visual Studio but no Clang, 2 all set
 };
 int screenshot(const ShotOptions& o);
 

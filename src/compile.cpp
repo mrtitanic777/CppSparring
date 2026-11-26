@@ -129,22 +129,32 @@ CompileResult build_and_run(const std::string& source_path, const std::string& i
 
 namespace {
 
+stdfs::path installer_dir() {
+    wchar_t pf86[MAX_PATH] = {};
+    if (!GetEnvironmentVariableW(L"ProgramFiles(x86)", pf86, MAX_PATH)) return {};
+    return stdfs::path(pf86) / L"Microsoft Visual Studio" / L"Installer";
+}
+
+// The newest Visual Studio, with its C++ tools when `cpp` is asked for; empty when there is none.
+std::string visual_studio_dir(bool cpp) {
+    const stdfs::path vswhere = installer_dir() / L"vswhere.exe";
+    std::error_code ec;
+    if (installer_dir().empty() || !stdfs::exists(vswhere, ec)) return {};
+    std::string cmd = "\"" + vswhere.string() + "\" -latest -products *";
+    if (cpp) cmd += " -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64";
+    const ProcessResult r = run_process(cmd + " -property installationPath", 10000, false);
+    return r.output.substr(0, r.output.find_first_of("\r\n"));
+}
+
 std::string find_clang_dir() {
     wchar_t found[MAX_PATH] = {};
     if (SearchPathW(nullptr, L"clang++.exe", nullptr, MAX_PATH, found, nullptr)) return stdfs::path(found).parent_path().string();
     // Visual Studio's own Clang ("C++ Clang tools for Windows")
-    wchar_t pf86[MAX_PATH] = {};
-    if (GetEnvironmentVariableW(L"ProgramFiles(x86)", pf86, MAX_PATH)) {
-        const stdfs::path vswhere = stdfs::path(pf86) / L"Microsoft Visual Studio" / L"Installer" / L"vswhere.exe";
-        std::error_code ec;
-        if (stdfs::exists(vswhere, ec)) {
-            const ProcessResult r = run_process("\"" + vswhere.string() + "\" -latest -products * -property installationPath", 10000, false);
-            std::string dir = r.output.substr(0, r.output.find_first_of("\r\n"));
-            const stdfs::path llvm = stdfs::path(dir) / "VC" / "Tools" / "Llvm" / "x64" / "bin";
-            if (!dir.empty() && stdfs::exists(llvm / "clang++.exe", ec)) return llvm.string();
-        }
-    }
     std::error_code ec;
+    if (const std::string dir = visual_studio_dir(false); !dir.empty()) {
+        const stdfs::path llvm = stdfs::path(dir) / "VC" / "Tools" / "Llvm" / "x64" / "bin";
+        if (stdfs::exists(llvm / "clang++.exe", ec)) return llvm.string();
+    }
     if (stdfs::exists("C:\\Program Files\\LLVM\\bin\\clang++.exe", ec)) return "C:\\Program Files\\LLVM\\bin";
     return {};
 }
@@ -155,6 +165,24 @@ std::string clang_exe(bool cpp) {
     static const std::string dir = find_clang_dir();
     const std::string name = cpp ? "clang++.exe" : "clang.exe";
     return dir.empty() ? name : "\"" + (stdfs::path(dir) / name).string() + "\"";
+}
+
+ToolCheck check_tools() {
+    ToolCheck t;
+    t.visual_studio = !visual_studio_dir(true).empty();
+    std::error_code ec;
+    if (const stdfs::path setup = installer_dir() / L"vs_installer.exe"; !installer_dir().empty() && stdfs::exists(setup, ec)) t.installer = setup.string();
+    wchar_t found[MAX_PATH] = {};
+    t.clang = SearchPathW(nullptr, L"clang++.exe", nullptr, MAX_PATH, found, nullptr) || !find_clang_dir().empty();
+    if (!t.clang) return t;
+    const CompileResult r = compile_and_run_string("#include <iostream>\nint main() { std::cout << \"ok\"; return 0; }\n",
+                                                   (stdfs::path(temp_dir()) / "toolcheck.cpp").string());
+    t.builds = r.compiled && r.output == "ok";
+    if (!t.builds) {
+        std::string first = r.compile_errors.substr(0, r.compile_errors.find('\n'));
+        t.problem = first.empty() ? "The test program didn't run." : first;
+    }
+    return t;
 }
 
 bool reads_input(const std::string& s) {

@@ -20,6 +20,16 @@ ProcessResult run_process(const std::string& command_line, unsigned long timeout
 // The Clang to use, quoted for a command line: on the PATH, else inside Visual Studio, else in C:\Program Files\LLVM.
 std::string clang_exe(bool cpp);
 
+// What this computer has for building programs, checked by really building and running a tiny one.
+struct ToolCheck {
+    bool visual_studio = false;   // Visual Studio 2022+ with the C++ workload
+    bool clang = false;           // a Clang was found
+    bool builds = false;          // a test program built and ran
+    std::string problem;          // what the compiler said when the test failed
+    std::string installer;        // the Visual Studio Installer, when it is there
+};
+ToolCheck check_tools();
+
 // Whether a program asks the person running it to type something.
 bool reads_input(const std::string& source);
 

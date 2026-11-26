@@ -29,7 +29,7 @@ constexpr float kLookRowHeight = 108.0f;
 
 // The places (Home, Practice, Lessons, Badges) and what opens from them: a program's Look and Break steps, one lesson, and the
 // quest's own pages. The rail only ever lists places.
-enum class Page { Home, Practice, Look, Break, Badges, Lessons, Lesson, Quiz, QuestDone };
+enum class Page { Home, Practice, Look, Break, Badges, Lessons, Lesson, Quiz, QuestDone, Setup };
 
 enum class Control {
     None, CaptionMinimize, CaptionMaximize, CaptionClose, SoundToggle,
@@ -43,8 +43,12 @@ enum class Control {
     QuestSkip, QuestQuit,
     LessonTile, LessonList, LessonRun, LessonReset, LessonHint, LessonNext, Editor,
     QuizAnswer, QuizNext,
-    ChestOpen, QuestHome, QuestAgain
+    ChestOpen, QuestHome, QuestAgain,
+    SetupRecheck, SetupInstaller, SetupContinue
 };
+
+// Whether this computer can build programs (checked when CppSparring starts).
+enum class Tools { Checking, Ready, Missing };
 
 struct AstNode {
     std::string id;        // clang's node id, for declarations
@@ -175,6 +179,9 @@ struct Model {
 
     Progress progress;
     int pick_level = 1;
+
+    Tools tools = Tools::Checking;
+    ToolCheck tool_check;
 
     std::string source_path;
     std::string source_name;
@@ -315,6 +322,11 @@ struct Layout {
 
     // Quest done
     Rect done_card, chest, done_home, done_again;
+
+    // Setup: what's needed to build programs
+    Rect setup_card;
+    std::array<Rect, 3> setup_rows{};
+    Rect setup_steps, setup_recheck, setup_installer, setup_continue;
 };
 
 Layout compute_layout(const Model& m, float width, float height);

@@ -53,6 +53,7 @@ constexpr UINT kReplayStepMs = 800;
 constexpr UINT kWmReplayDone = WM_APP + 3;
 constexpr UINT kWmLessonDone = WM_APP + 4;
 constexpr UINT kWmRunLesson = WM_APP + 5;   // F5 in the editor
+constexpr UINT kWmToolsDone = WM_APP + 6;   // the check for Visual Studio and Clang is done
 constexpr float kCheerSeconds = 3.3f;
 constexpr int kEditorId = 100;
 
@@ -78,6 +79,10 @@ LRESULT CALLBACK editor_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, D
         }
         if (wp == VK_F5) {
             PostMessageW(owner, kWmRunLesson, 0, 0);
+            return 0;
+        }
+        if (wp == VK_ESCAPE) {   // Esc leaves the lesson, as everywhere else
+            PostMessageW(owner, WM_KEYDOWN, VK_ESCAPE, 0);
             return 0;
         }
         if (wp == 'A' && (GetKeyState(VK_CONTROL) & 0x8000)) {
@@ -396,6 +401,17 @@ struct App {
         invalidate();
     }
 
+    // ---- can this computer build programs?
+    void start_tool_check() {
+        model.tools = Tools::Checking;
+        HWND h = hwnd;
+        std::thread([h] {
+            auto r = std::make_unique<ToolCheck>(check_tools());
+            if (PostMessageW(h, kWmToolsDone, 0, reinterpret_cast<LPARAM>(r.get()))) r.release();
+        }).detach();
+        invalidate();
+    }
+
     // ---- the Daily Quest
     QuestStep* step() {
         Quest& q = model.quest;
@@ -606,6 +622,16 @@ struct App {
         };
         switch (model.page) {
         case Page::Badges: break;
+        case Page::Setup:
+            if (model.tools == Tools::Ready) {
+                if (Rect{layout.setup_recheck.x, layout.setup_recheck.y, layout.setup_card.w - 64, 44}.contains(x, y)) return Control::SetupContinue;
+                break;
+            }
+            if (model.tools == Tools::Checking) break;
+            if (layout.setup_recheck.contains(x, y)) return Control::SetupRecheck;
+            if (layout.setup_installer.contains(x, y)) return Control::SetupInstaller;
+            if (layout.setup_continue.contains(x, y)) return Control::SetupContinue;
+            break;
         case Page::Lessons:
             if (layout.lessons_area.contains(x, y)) {
                 const Control c = in(layout.lesson_tiles, Control::LessonTile);
@@ -705,6 +731,56 @@ struct App {
         if (line - 1 < model.code_scroll || line > model.code_scroll + visible) model.code_scroll = std::max(0, line - 1 - visible / 3);
     }
 
+    // The keyboard: 1-4 answer (A-D too on a quiz card), Enter goes on, Esc goes back. True when the key did something.
+    bool key(UINT vk) {
+        int answer = -1;
+        if (vk >= '1' && vk <= '4') answer = static_cast<int>(vk - '1');
+        if (vk >= VK_NUMPAD1 && vk <= VK_NUMPAD4) answer = static_cast<int>(vk - VK_NUMPAD1);
+        if (model.page == Page::Quiz && vk >= 'A' && vk <= 'D') answer = static_cast<int>(vk - 'A');
+        const bool enter = vk == VK_RETURN, esc = vk == VK_ESCAPE;
+        const bool in_quest = model.quest.active && !model.quest.finished;
+        switch (model.page) {
+        case Page::Home:
+            if (enter) return click(Control::HeroQuest, -1), true;
+            break;
+        case Page::Break: {
+            if (model.challenges.empty() || model.current < 0) break;
+            const Challenge& c = model.challenges[static_cast<std::size_t>(model.current)];
+            if (answer >= 0 && c.guess < 0 && !model.running) return click(Control::Guess, answer), true;
+            if (enter && c.ran) return click(Control::NextAfterResult, -1), true;
+            if (esc && !in_quest) return click(Control::SessionBack, -1), true;
+            break;
+        }
+        case Page::Look:
+            if (esc && model.replay_open) return click(Control::ReplayStop, -1), true;
+            if (enter && !model.replay_open && !model.importing && !model.toggles.empty()) return click(Control::NextStep, -1), true;
+            if (esc && !in_quest) return click(Control::SessionBack, -1), true;
+            break;
+        case Page::Quiz:
+            if (answer >= 0 && model.quiz_choice < 0) return click(Control::QuizAnswer, answer), true;
+            if (enter && model.quiz_choice >= 0) return click(Control::QuizNext, -1), true;
+            break;
+        case Page::Lesson:
+            if (esc && !in_quest) return click(Control::SessionBack, -1), true;
+            if (enter && model.lesson_ran && model.lesson_check.passed) return click(Control::LessonNext, -1), true;
+            break;
+        case Page::QuestDone:
+            if (enter) return click(model.quest.chest_open ? Control::QuestAgain : Control::ChestOpen, -1), true;
+            if (esc) return click(Control::QuestHome, -1), true;
+            break;
+        case Page::Setup:
+            if (enter) return click(model.tools == Tools::Ready ? Control::SetupContinue : Control::SetupRecheck, -1), true;
+            if (esc) return click(Control::SetupContinue, -1), true;
+            break;
+        case Page::Practice:
+        case Page::Lessons:
+        case Page::Badges:
+            if (esc) return click(Control::NavHome, -1), true;
+            break;
+        }
+        return false;
+    }
+
     // What is in the answers box now (Windows does not always say when a multi-line box changes).
     void sync_answers() {
         if (std::string* field = answers(); field && input_edit && (GetWindowLongPtrW(input_edit, GWL_STYLE) & WS_VISIBLE)) *field = edit_text(input_edit);
@@ -765,7 +841,19 @@ struct App {
             close_replay();
             model.page = Page::Break;
             break;
+        case Control::SetupRecheck: start_tool_check(); break;
+        case Control::SetupInstaller:
+            if (!model.tool_check.installer.empty())
+                ShellExecuteW(hwnd, L"open", widen(model.tool_check.installer).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+            else
+                ShellExecuteW(hwnd, L"open", L"https://visualstudio.microsoft.com/vs/community/", nullptr, nullptr, SW_SHOWNORMAL);
+            break;
+        case Control::SetupContinue: model.page = Page::Home; break;
         case Control::HeroQuest:
+            if (model.tools == Tools::Missing) {
+                model.page = Page::Setup;
+                break;
+            }
             if (model.quest.active && !model.quest.finished) open_step();
             else start_quest();
             return;
@@ -1074,6 +1162,7 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
 
     case WM_LBUTTONDOWN: {
+        SetFocus(hwnd);   // so the keys work again after typing in a box
         int i = -1;
         model.pressed = hit(dip(GET_X_LPARAM(lp)), dip(GET_Y_LPARAM(lp)), i);
         model.pressed_index = i;
@@ -1137,11 +1226,13 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
             invalidate();
             return 0;
         }
-        if (model.page == Page::Break && (wp == VK_LEFT || wp == VK_RIGHT)) {
+        if (model.page == Page::Break && (wp == VK_LEFT || wp == VK_RIGHT) && !model.quest.active) {
             step_challenge(wp == VK_LEFT ? -1 : +1);
+            start_page_anim();
             invalidate();
             return 0;
         }
+        if (key(static_cast<UINT>(wp))) return 0;
         break;
 
     case WM_SIZE:
@@ -1243,6 +1334,19 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
     case kWmRunLesson:
         run_lesson();
         return 0;
+
+    case kWmToolsDone: {
+        std::unique_ptr<ToolCheck> r(reinterpret_cast<ToolCheck*>(lp));
+        model.tool_check = *r;
+        model.tools = r->builds ? Tools::Ready : Tools::Missing;
+        if (model.tools == Tools::Missing && model.page == Page::Home) {   // say what's needed before anything fails
+            model.page = Page::Setup;
+            start_page_anim();
+        }
+        relayout();
+        invalidate();
+        return 0;
+    }
 
     case WM_COMMAND:
         if (input_edit && reinterpret_cast<HWND>(lp) == input_edit && HIWORD(wp) == EN_CHANGE) {
@@ -1425,7 +1529,15 @@ int render_png(const ShotOptions& o) {
              : page == L"quiz"      ? Page::Quiz
              : page == L"questdone" ? Page::QuestDone
              : page == L"practice"  ? Page::Practice
+             : page == L"setup"     ? Page::Setup
                                     : Page::Home;
+    m.tools = Tools::Ready;
+    if (m.page == Page::Setup) {
+        m.tool_check.visual_studio = o.setup >= 1;
+        m.tool_check.clang = o.setup >= 2;
+        m.tool_check.builds = o.setup >= 2;
+        m.tools = o.setup >= 2 ? Tools::Ready : Tools::Missing;
+    }
     if (m.replay_open) m.page = Page::Look;
     if (o.quest_step >= 0 || m.page == Page::QuestDone) {
         Progress p = m.progress;
@@ -1664,6 +1776,12 @@ int self_test(const std::wstring& log_path) {
     };
     auto shown = [](HWND h) { return h && (GetWindowLongPtrW(h, GWL_STYLE) & WS_VISIBLE) != 0; };
 
+    // ---- this computer can build programs
+    a.start_tool_check();
+    check("the setup check finishes", pump([&] { return m.tools != Tools::Checking; }, 90000));
+    check("this computer has Visual Studio, Clang, and a test program runs",
+          m.tools == Tools::Ready && m.tool_check.visual_studio && m.tool_check.clang && m.tool_check.builds);
+
     // ---- a whole Daily Quest
     click(Control::HeroQuest);
     check("the big button starts a quest of 5 steps", m.quest.active && m.quest.steps.size() == 5 && !m.quest.boss);
@@ -1721,6 +1839,26 @@ int self_test(const std::wstring& log_path) {
     check("when time runs out the step is skipped, no penalty", pump([&] { return m.quest.at >= 1; }, 5000) && m.quest.steps[0].skipped);
     click(Control::QuestQuit);
     check("quitting goes home", m.page == Page::Home && !m.quest.active);
+
+    // ---- the keyboard
+    m.progress.quests_done = 0;
+    auto press = [&](UINT vk) {
+        SendMessageW(hwnd, WM_KEYDOWN, vk, 0);
+        pump([] { return false; }, 20);
+    };
+    press(VK_RETURN);
+    check("Enter on Home starts a quest", m.quest.active && m.page == Page::Quiz);
+    press('B');
+    check("B answers a quiz card", m.quiz_choice == 1);
+    press(VK_RETURN);
+    check("Enter goes on to the next step", m.quest.at == 1);
+    check("the next step's program is read", pump(guess_ready, 90000));
+    press('3');
+    check("3 makes a guess", pump(ran, 90000) && m.challenges[static_cast<std::size_t>(m.current)].guess == 2);
+    click(Control::QuestQuit);
+    click(Control::NavPractice);
+    press(VK_ESCAPE);
+    check("Esc on Practice goes home", m.page == Page::Home);
 
     // ---- Practice with typed answers
     click(Control::NavPractice);
@@ -1833,6 +1971,7 @@ int run_window(const std::wstring& file) {
     app->model.progress = load_progress();
     set_sound_on(app->model.progress.sound);
     app->model.pick_level = highest_open_level(app->model.progress);
+    app->start_tool_check();
     app->relayout();
     if (!file.empty()) app->load_file(narrow(file));
     ShowWindow(hwnd, SW_SHOW);
