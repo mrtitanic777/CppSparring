@@ -8,8 +8,11 @@
 #include <commctrl.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <chrono>
+#include <cmath>
+#include <format>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -22,6 +25,7 @@
 #include "examples.hpp"
 #include "explain.hpp"
 #include "fix.hpp"
+#include "importer.hpp"
 #include "layout.hpp"
 #include "mutate.hpp"
 #include "lessons.hpp"
@@ -59,6 +63,8 @@ constexpr UINT kWmLessonDone = WM_APP + 4;
 constexpr UINT kWmRunLesson = WM_APP + 5;   // F5 in the editor
 constexpr UINT kWmToolsDone = WM_APP + 6;   // the check for Visual Studio and Clang is done
 constexpr UINT kWmFixDone = WM_APP + 7;     // a Fix it puzzle is ready
+constexpr UINT kWmBookProgress = WM_APP + 8;   // "Reading page 37 of 210"
+constexpr UINT kWmBookDone = WM_APP + 9;       // the lessons from a book or SDK are made (or it failed)
 constexpr float kCheerSeconds = 3.3f;
 constexpr int kEditorId = 100;
 constexpr UINT kWmVoice = WM_APP + 20;        // a line from Bit's voice helper (Kokoro)
@@ -205,6 +211,21 @@ struct FixResult {
     unsigned id = 0;
     FixPuzzle puzzle;
 };
+
+struct BookProgress {
+    unsigned id = 0;
+    std::string text;
+};
+
+struct BookResult {
+    unsigned id = 0;
+    ImportOutcome outcome;
+};
+
+bool has_extension(const std::wstring& path, const wchar_t* ext) {
+    const std::size_t dot = path.find_last_of(L'.');
+    return dot != std::wstring::npos && _wcsicmp(path.c_str() + dot, ext) == 0;
+}
 
 struct App {
     HWND hwnd = nullptr;
@@ -498,6 +519,100 @@ struct App {
         relayout();
         if (editor) SetFocus(editor);
         start_page_anim();
+    }
+
+    // ---- Settings: lessons from a book or an SDK folder
+    unsigned book_id = 0;
+    std::shared_ptr<std::atomic<bool>> book_cancel;
+
+    void start_book_import(const std::wstring& path, bool folder) {
+        if (model.book_state == BookState::Working) return;
+        if (model.quest.active && !model.quest.finished) return;   // (a quest takes the whole window)
+        close_replay();
+        model.book_state = BookState::Working;
+        model.book_status = "Opening…";
+        model.book_message.clear();
+        model.book_folder.clear();
+        model.confirm_remove = -1;
+        model.my_courses = imported_courses();
+        model.page = Page::Settings;
+        start_page_anim();
+        const unsigned id = ++book_id;
+        book_cancel = std::make_shared<std::atomic<bool>>(false);
+        const std::shared_ptr<std::atomic<bool>> cancel = book_cancel;
+        HWND h = hwnd;
+        std::thread([h, id, path, folder, cancel] {
+            const auto progress = [h, id, cancel](const std::string& text) {
+                if (cancel->load()) return false;
+                auto p = std::make_unique<BookProgress>();
+                p->id = id;
+                p->text = text;
+                if (PostMessageW(h, kWmBookProgress, 0, reinterpret_cast<LPARAM>(p.get()))) p.release();
+                return true;
+            };
+            auto r = std::make_unique<BookResult>();
+            r->id = id;
+            r->outcome = folder ? import_folder(path, progress) : import_pdf(path, progress);
+            if (PostMessageW(h, kWmBookDone, 0, reinterpret_cast<LPARAM>(r.get()))) r.release();
+        }).detach();
+        relayout();
+        invalidate();
+    }
+
+    // The lessons were read again: an open imported lesson may be gone or may now be a different one.
+    void lessons_reloaded() {
+        model.lessons_scroll = 0;
+        if (model.lesson >= static_cast<int>(builtin_lesson_count())) {
+            model.lesson = -1;
+            if (model.page == Page::Lesson && !model.fixing) model.page = Page::Lessons;
+        }
+    }
+
+    void show_course(const std::string& folder) {
+        int number = -1;
+        for (const Course& c : courses())
+            if (c.imported && c.folder == folder) number = c.number;
+        model.page = Page::Lessons;
+        model.lessons_scroll = 0;
+        relayout();
+        for (const auto& [r, n] : layout.course_heads)
+            if (n == number) {
+                const int most = std::max(0, static_cast<int>(layout.lessons_height - layout.lessons_area.h) + 20);
+                model.lessons_scroll = std::clamp(static_cast<int>(r.y - layout.lessons_area.y), 0, most);
+            }
+    }
+
+    void browse_book() {
+        ComPtr<IFileOpenDialog> dlg;
+        if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&dlg)))) return;
+        const COMDLG_FILTERSPEC filters[] = {{L"PDF books", L"*.pdf"}, {L"All files", L"*.*"}};
+        dlg->SetFileTypes(2, filters);
+        dlg->SetTitle(L"Open a programming book (a PDF)");
+        if (FAILED(dlg->Show(hwnd))) return;
+        ComPtr<IShellItem> item;
+        if (FAILED(dlg->GetResult(&item))) return;
+        PWSTR p = nullptr;
+        if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &p))) {
+            start_book_import(p, false);
+            CoTaskMemFree(p);
+        }
+    }
+
+    void browse_sdk() {
+        ComPtr<IFileOpenDialog> dlg;
+        if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&dlg)))) return;
+        DWORD options = 0;
+        dlg->GetOptions(&options);
+        dlg->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
+        dlg->SetTitle(L"Open an SDK folder");
+        if (FAILED(dlg->Show(hwnd))) return;
+        ComPtr<IShellItem> item;
+        if (FAILED(dlg->GetResult(&item))) return;
+        PWSTR p = nullptr;
+        if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &p))) {
+            start_book_import(p, true);
+            CoTaskMemFree(p);
+        }
     }
 
     // ---- can this computer build programs?
@@ -982,6 +1097,7 @@ struct App {
         if (layout.nav_practice.contains(x, y)) return Control::NavPractice;
         if (layout.nav_badges.contains(x, y)) return Control::NavBadges;
         if (layout.nav_learn.contains(x, y)) return Control::NavLearn;
+        if (layout.nav_settings.contains(x, y)) return Control::NavSettings;
         if (layout.quest_skip.contains(x, y)) return Control::QuestSkip;
         if (layout.quest_quit.contains(x, y)) return Control::QuestQuit;
         if (layout.session_back.contains(x, y)) return Control::SessionBack;
@@ -1006,6 +1122,31 @@ struct App {
             break;
         case Page::Name:
             if (layout.name_done.contains(x, y) && !clean_name(model.name_typed).empty()) return Control::NameDone;
+            break;
+        case Page::Settings:
+            if (model.book_state == BookState::Working) {
+                if (layout.set_action.contains(x, y)) return Control::ImportCancel;
+            } else {
+                if (layout.set_pdf.contains(x, y)) return Control::ImportPdf;
+                if (layout.set_folder.contains(x, y)) return Control::ImportFolder;
+                if (model.book_state == BookState::Done && layout.set_action.contains(x, y)) return Control::ImportOpen;
+            }
+            for (std::size_t k = 0; k < layout.set_rows.size(); ++k) {
+                const int course = layout.set_first + static_cast<int>(k);
+                if (model.confirm_remove == course) {
+                    if (layout.set_yes[k].contains(x, y)) {
+                        index = course;
+                        return Control::CourseRemoveYes;
+                    }
+                    if (layout.set_no[k].contains(x, y)) {
+                        index = course;
+                        return Control::CourseRemoveNo;
+                    }
+                } else if (layout.set_remove[k].contains(x, y)) {
+                    index = course;
+                    return Control::CourseRemove;
+                }
+            }
             break;
         case Page::Setup:
             if (model.tools == Tools::Ready) {
@@ -1188,6 +1329,9 @@ struct App {
             if (enter && !clean_name(model.name_typed).empty()) return click(Control::NameDone, -1), true;
             if (esc && !model.progress.name.empty() && name_back == Page::Summary) return click(Control::Grownups, -1), true;
             break;
+        case Page::Settings:
+            if (esc) return click(model.confirm_remove >= 0 ? Control::CourseRemoveNo : Control::NavHome, model.confirm_remove), true;
+            break;
         }
         return false;
     }
@@ -1266,6 +1410,35 @@ struct App {
             break;
         case Control::SetupContinue: model.page = Page::Home; break;
         case Control::Grownups: model.page = Page::Summary; break;
+        case Control::NavSettings:
+            close_replay();
+            model.my_courses = imported_courses();
+            model.confirm_remove = -1;
+            model.page = Page::Settings;
+            break;
+        case Control::ImportPdf: browse_book(); return;
+        case Control::ImportFolder: browse_sdk(); return;
+        case Control::ImportCancel:
+            if (book_cancel) book_cancel->store(true);
+            model.book_status = "Stopping…";
+            break;
+        case Control::ImportOpen: show_course(model.book_folder); break;
+        case Control::CourseRemove: model.confirm_remove = i; break;
+        case Control::CourseRemoveNo: model.confirm_remove = -1; break;
+        case Control::CourseRemoveYes:
+            if (i >= 0 && i < static_cast<int>(model.my_courses.size())) {
+                const std::string folder = model.my_courses[static_cast<std::size_t>(i)].folder;
+                remove_imported_course(folder);
+                reload_lessons();
+                lessons_reloaded();
+                model.my_courses = imported_courses();
+                if (model.book_folder == folder) {
+                    model.book_state = BookState::Idle;
+                    model.book_folder.clear();
+                }
+            }
+            model.confirm_remove = -1;
+            break;
         case Control::SummaryBack: model.page = Page::Badges; break;
         case Control::HeroQuest:
             if (model.tools == Tools::Missing) {
@@ -1653,6 +1826,10 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
             const int most = std::max(0, static_cast<int>(layout.lessons_height - layout.lessons_area.h) + 20);
             model.lessons_scroll = std::clamp(model.lessons_scroll - steps * 66, 0, most);
             relayout();
+        } else if (model.page == Page::Settings && layout.set_list.contains(x, y)) {
+            model.settings_scroll = std::clamp(model.settings_scroll - steps, 0, std::max(0, static_cast<int>(model.my_courses.size()) - 1));
+            relayout();
+            model.settings_scroll = layout.set_first;
         } else if (model.page == Page::Look && layout.look_list.contains(x, y)) {
             model.look_scroll = std::clamp(model.look_scroll - steps, 0, std::max(0, static_cast<int>(model.look.size()) - 1));
             relayout();
@@ -1741,7 +1918,12 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
     case WM_DROPFILES: {
         HDROP drop = reinterpret_cast<HDROP>(wp);
         wchar_t path[MAX_PATH] = {};
-        if (DragQueryFileW(drop, 0, path, MAX_PATH)) load_file(narrow(path));
+        if (DragQueryFileW(drop, 0, path, MAX_PATH)) {
+            const DWORD attributes = GetFileAttributesW(path);
+            if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY)) start_book_import(path, true);   // an SDK folder
+            else if (has_extension(path, L".pdf")) start_book_import(path, false);
+            else load_file(narrow(path));
+        }
         DragFinish(drop);
         return 0;
     }
@@ -1830,6 +2012,35 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
         std::unique_ptr<FixResult> r(reinterpret_cast<FixResult*>(lp));
         if (r->id != fix_id || !model.fixing || !model.fix_loading) return 0;
         show_fix(std::move(r->puzzle));
+        relayout();
+        invalidate();
+        return 0;
+    }
+
+    case kWmBookProgress: {
+        std::unique_ptr<BookProgress> r(reinterpret_cast<BookProgress*>(lp));
+        if (r->id != book_id || model.book_state != BookState::Working) return 0;
+        if (!(book_cancel && book_cancel->load())) model.book_status = r->text;
+        invalidate();
+        return 0;
+    }
+
+    case kWmBookDone: {
+        std::unique_ptr<BookResult> r(reinterpret_cast<BookResult*>(lp));
+        if (r->id != book_id) return 0;
+        const ImportOutcome& o = r->outcome;
+        if (o.ok) {
+            reload_lessons();
+            lessons_reloaded();
+            model.book_state = BookState::Done;
+            model.book_folder = o.folder;
+            model.book_message = std::format("Made {} lessons from '{}'.", o.lessons, o.name);
+            play(Sound::Right);
+        } else {
+            model.book_state = BookState::Failed;
+            model.book_message = o.cancelled ? "Stopped. No lessons were made." : o.error;
+        }
+        model.my_courses = imported_courses();
         relayout();
         invalidate();
         return 0;
@@ -1951,6 +2162,7 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
         voice.stop_all();
         ear.stop_all();
         overlay.destroy();
+        if (book_cancel) book_cancel->store(true);
         PostQuitMessage(0);
         return 0;
     }
@@ -1977,6 +2189,26 @@ int render_png(const ShotOptions& o) {
     Renderer renderer;
     if (!renderer.init()) return 1;
 
+    // lessons really made from a PDF or folder (or several, separated by |), kept in a temporary folder of their own
+    std::size_t first_imported = lessons().size();
+    ImportOutcome last_import;
+    int imports = 0;
+    if (!o.import_path.empty()) {
+        std::error_code ec;
+        const std::filesystem::path dir = std::filesystem::temp_directory_path(ec) / L"CppSparring" / L"shot-courses";
+        std::filesystem::remove_all(dir, ec);
+        use_courses_dir(dir.wstring());
+        std::wstring rest = o.import_path;
+        while (!rest.empty()) {
+            const std::size_t bar = rest.find(L'|');
+            const std::wstring one = rest.substr(0, bar);
+            rest = bar == std::wstring::npos ? L"" : rest.substr(bar + 1);
+            const bool folder = std::filesystem::is_directory(std::filesystem::path(one), ec);
+            last_import = folder ? import_folder(one, {}) : import_pdf(one, {});
+            imports += last_import.ok;
+        }
+        reload_lessons();
+    }
     Model m;
     m.progress = load_progress();
     if (o.demo) {
@@ -2050,9 +2282,35 @@ int render_png(const ShotOptions& o) {
              : page == L"fix"       ? Page::Lesson
              : page == L"summary"   ? Page::Summary
              : page == L"name"      ? Page::Name
+             : page == L"settings"  ? Page::Settings
                                     : Page::Home;
     m.tools = Tools::Ready;
     if (m.page == Page::Summary) m.cheers.clear();
+    if (m.page == Page::Settings) {
+        m.cheers.clear();
+        m.my_courses = imported_courses();
+        if (imports > 0) {
+            m.book_state = BookState::Done;
+            m.book_folder = last_import.folder;
+            m.book_message = std::format("Made {} lessons from '{}'.", last_import.lessons, last_import.name);
+        }
+        if (o.demo && imports == 0) {   // made-up courses, with --setup 1 (working), 2 (asking before removing) or 3 (a problem)
+            m.my_courses = {{"learning_c", "Learning C the Easy Way", "learning_c.pdf", "C", "2026-11-25", 41, 14},
+                            {"some_sdk", "Game SDK", "game_sdk", "C and C++", "2026-11-26", 17, 6}};
+            if (o.setup == 1) {
+                m.book_state = BookState::Working;
+                m.book_status = "Trying code sample 12 of 48";
+            } else if (o.setup == 3) {
+                m.book_state = BookState::Failed;
+                m.book_message = "This PDF is only pictures of pages (a scan), so there are no words in it for me to read.";
+            } else {
+                m.book_state = BookState::Done;
+                m.book_message = "Made 41 lessons from 'Learning C the Easy Way'.";
+            }
+            m.confirm_remove = o.setup == 2 ? 1 : -1;
+        }
+    }
+    if (!o.import_path.empty() && o.lesson < 0 && m.page == Page::Lesson) m.lesson = static_cast<int>(first_imported) + 1;   // the second one made: a gap to fill
     if (m.page == Page::Setup) {
         m.tool_check.visual_studio = o.setup >= 1;
         m.tool_check.clang = o.setup >= 2;
@@ -2082,7 +2340,18 @@ int render_png(const ShotOptions& o) {
             m.quest.chest_open = o.chest;
         }
     }
-    if (o.lesson >= 0 && o.lesson < static_cast<int>(lessons().size())) {
+    if (!o.import_path.empty() && o.lesson < 0 && m.page == Page::Lesson && first_imported + 1 < lessons().size()) {
+        const Lesson& ls = lessons()[first_imported + 1];
+        m.lesson = static_cast<int>(first_imported) + 1;
+        m.lesson_code = ls.starter;
+        m.lesson_reads_input = lesson_reads_input(ls);
+        m.lesson_input = ls.input;
+        m.hint_shown = o.hint;
+        if (o.run_lesson) {
+            m.lesson_check = check_lesson(ls, m.lesson_code, m.lesson_input);
+            m.lesson_ran = true;
+        }
+    } else if (o.lesson >= 0 && o.lesson < static_cast<int>(lessons().size())) {
         const Lesson& ls = lessons()[static_cast<std::size_t>(o.lesson)];
         m.lesson = o.lesson;
         m.lesson_code = ls.starter;
@@ -2118,6 +2387,10 @@ int render_png(const ShotOptions& o) {
     }
 
     const UINT w = 1180, h = 760;
+    if (m.page == Page::Lessons && !o.import_path.empty()) {   // the end of the list, where the imported courses are
+        const Layout whole = compute_layout(m, static_cast<float>(w), static_cast<float>(h));
+        m.lessons_scroll = std::max(0, static_cast<int>(whole.lessons_height - whole.lessons_area.h) + 20);
+    }
     const Layout layout = compute_layout(m, static_cast<float>(w), static_cast<float>(h));
     if (m.page == Page::Name) {   // meeting Bit, with a name being typed
         m.name_typed = "  sam";
@@ -2344,6 +2617,8 @@ int register_open_with() {
     return ok ? 0 : 1;
 }
 
+bool layout_ok(const App& a) { return a.layout.set_pdf.w > 0 && a.layout.set_folder.w > 0 && a.layout.set_status.w > 0; }
+
 int self_test(const std::wstring& log_path) {
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     std::error_code ec;
@@ -2351,6 +2626,10 @@ int self_test(const std::wstring& log_path) {
     std::filesystem::create_directories(progress.parent_path(), ec);
     std::filesystem::remove(progress, ec);
     use_progress_file(progress.wstring());
+    // imported courses go in a folder of their own, never the real one
+    const std::filesystem::path test_courses = std::filesystem::temp_directory_path(ec) / L"CppSparring" / L"selftest-courses";
+    std::filesystem::remove_all(test_courses, ec);
+    use_courses_dir(test_courses.wstring());
 
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof wc;
@@ -2762,11 +3041,240 @@ int self_test(const std::wstring& log_path) {
     check("the speaker button mutes, and it is remembered", !m.progress.sound && !load_progress().sound);
     check("the program carries its icon", LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON, 32, 32, 0) != nullptr);
 
+
+    // ---- lessons from a book or an SDK: the PDF reader, the lesson maker and the Settings page
+    {
+        namespace fs = std::filesystem;
+        wchar_t exe_path[MAX_PATH] = {};
+        GetModuleFileNameW(nullptr, exe_path, MAX_PATH);
+        const fs::path fixtures = fs::path(exe_path).parent_path() / L"fixtures";
+        auto fixture = [&](const wchar_t* name) { return (fixtures / name).wstring(); };
+        auto text_of = [](const pdf::Document& doc) {
+            std::string all;
+            for (const pdf::Page& pg : doc.pages)
+                for (const pdf::Line& ln : pg.lines) all += ln.text + "\n";
+            return all;
+        };
+
+        // Flate, the compression PDFs use: three kinds of block, cut-off data and nonsense
+        const unsigned char stored[] = {0x78, 0x01, 0x01, 0x12, 0x00, 0xED, 0xFF, 0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x20, 0x73, 0x74, 0x6F, 0x72, 0x65, 0x64, 0x20, 0x62, 0x6C, 0x6F, 0x63, 0x6B, 0x42, 0x51, 0x06, 0xF1};
+        const unsigned char fixed[] = {0x78, 0xDA, 0x4B, 0x4C, 0x4A, 0x4E, 0xC4, 0x40, 0x0A, 0x15, 0x95, 0x55, 0x00, 0x7B, 0xF5, 0x09, 0x96};
+        const unsigned char dynamic_block[] = {0x78, 0xDA, 0xED, 0x8D, 0x4D, 0x0E, 0x82, 0x30, 0x14, 0x84, 0xAF, 0x32, 0xBA, 0x82, 0xC4, 0x10, 0xF7, 0x5C, 0xC0, 0xA5, 0x89, 0x2C, 0xDD, 0x14, 0x79, 0x2D, 0xD5, 0xD2, 0x07, 0xA5, 0x2D, 0x3F, 0xC6, 0xBB, 0x5B, 0x8C, 0x97, 0x30, 0x71, 0x39, 0xF9, 0x66, 0xBE, 0xA9, 0x5A, 0xC2, 0x10, 0xF4, 0xED, 0x81, 0xDA, 0xF1, 0x64, 0x21, 0x79, 0xC6, 0x3D, 0x74, 0xFD, 0x08, 0x8E, 0xE4, 0xE0, 0x13, 0x36, 0x62, 0x5D, 0xD0, 0xB0, 0x2A, 0x70, 0x16, 0xA9, 0xD7, 0x2D, 0xA8, 0x53, 0x69, 0xD2, 0xBE, 0x85, 0xD4, 0x91, 0x12, 0x5A, 0xC9, 0xC2, 0xE8, 0x21, 0xB0, 0x4B, 0x5B, 0x35, 0x16, 0xA8, 0xFE, 0xD6, 0x1F, 0xB2, 0x9E, 0x78, 0x42, 0xA4, 0x59, 0x5B, 0x65, 0x96, 0xAF, 0xBE, 0x11, 0xD2, 0x63, 0xA5, 0xDA, 0x89, 0xF1, 0x73, 0xB0, 0xC3, 0xA5, 0x6F, 0xB5, 0x9D, 0xC1, 0x12, 0xB5, 0xD9, 0xC4, 0x43, 0x10, 0xCE, 0xAF, 0x87, 0x44, 0x1B, 0x45, 0xDB, 0x4D, 0xE4, 0xA9, 0x80, 0xB6, 0x1E, 0x9D, 0xD0, 0x36, 0xCB, 0xF1, 0x44, 0xEF, 0x52, 0x94, 0xD9, 0xBE, 0x25, 0x63, 0xF8, 0x6A, 0xF7, 0x79, 0x09, 0x47, 0x3E, 0x38, 0x8B, 0x63, 0x89, 0xD7, 0x1B, 0x8C, 0x75, 0xE2, 0x7C};
+        std::string text;
+        for (int i = 0; i < 6; ++i) text += "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. ";
+        text += "How vexingly quick daft zebras jump! Sphinx of black quartz, judge my vow. int main() { printf(\"hello\\n\"); return 0; }";
+        std::string o1, o2, o3, o4, o5;
+        const bool f1 = pdf::inflate(stored, sizeof stored, o1), f2 = pdf::inflate(fixed, sizeof fixed, o2), f3 = pdf::inflate(dynamic_block, sizeof dynamic_block, o3);
+        check("Flate decodes a stored block", f1 && o1 == "hello stored block");
+        check("Flate decodes a block with the fixed codes", f2 && o2 == "abcabcabcabcabcabcabc xyz");
+        check("Flate decodes a block with its own codes", f3 && o3 == text);
+        const bool cut = pdf::inflate(dynamic_block, sizeof dynamic_block / 2, o4);
+        check("Flate on cut-off data gives back what it read and says it is not whole", !cut && !o4.empty() && text.compare(0, o4.size(), o4) == 0);
+        const unsigned char nonsense[] = {0x78, 0x9C, 0xFF, 0xFF, 0xFF, 0xFF, 0x00};
+        check("Flate refuses nonsense", !pdf::inflate(nonsense, sizeof nonsense, o5));
+
+        // reading PDFs
+        const pdf::Document d = pdf::read_file(fixture(L"book_cpp.pdf"));
+        check("a PDF made by a browser is read: three pages and its title", d.ok && d.pages.size() == 3 && d.title == "Tiny C++ Book");
+        bool big_bold = false, mono_code = false;
+        float x_main = 0, x_cout = 0, char_w = 0;
+        for (const pdf::Page& pg : d.pages)
+            for (const pdf::Line& ln : pg.lines) {
+                if (ln.text == "Tiny C++ Book" && ln.bold && ln.size > 20) big_bold = true;
+                if (ln.text.rfind("std::cout << \"Hello, reader!\"", 0) == 0 && ln.mono) {
+                    mono_code = true;
+                    x_cout = ln.x;
+                    char_w = ln.char_w;
+                }
+                if (ln.text == "int main() {" && x_main == 0) x_main = ln.x;
+            }
+        check("headings come out big and bold, and code comes out in the monospace font", big_bold && mono_code);
+        check("a line of code remembers how far in it is (four letters)", char_w > 0 && std::fabs((x_cout - x_main) / char_w - 4.0f) < 0.6f);
+        const pdf::Document dx = pdf::read_file(fixture(L"book_cpp_objstm.pdf"));
+        check("a PDF with object streams and a cross-reference stream reads the same", dx.ok && text_of(dx) == text_of(d));
+        const pdf::Document di = pdf::read_file(fixture(L"book_c_incremental.pdf"));
+        check("a PDF with an update added on the end uses the newest version", di.ok && di.title == "Tiny C Book (second edition)");
+        const pdf::Document dl = pdf::read_file(fixture(L"book_locked.pdf"));
+        check("a locked PDF says so in plain words", !dl.ok && dl.error.find("locked") != std::string::npos);
+        const pdf::Document dn = pdf::read_bytes("this is not a pdf at all");
+        check("a file that is not a PDF says so", !dn.ok && dn.error.find("PDF") != std::string::npos);
+        std::string raw_pdf;
+        read_file(narrow(fixture(L"book_cpp.pdf")), raw_pdf);
+        const pdf::Document dc = pdf::read_bytes(raw_pdf.substr(0, raw_pdf.size() / 2));
+        check("a PDF that is cut off does not crash the reader", dc.ok || !dc.error.empty());
+        const pdf::Document dj = pdf::read_bytes("%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 1 0 R >>\nendobj\n%%EOF\n");
+        check("a PDF whose pages point at themselves does not hang the reader", !dj.ok && !dj.error.empty());
+
+        // sections and code blocks
+        const std::vector<Section> secs = sections_from_pdf(d);
+        int blocks = 0;
+        const Section* hello = nullptr;
+        bool boxes = false, again = false;
+        for (const Section& sc : secs) {
+            blocks += static_cast<int>(sc.blocks.size());
+            if (sc.title.find("Saying Hello") != std::string::npos) hello = &sc;
+            if (sc.title.find("Boxes for Numbers") != std::string::npos) boxes = true;
+            if (sc.title.find("Doing Things Again") != std::string::npos) again = true;
+        }
+        check("the book is split into sections by its headings", secs.size() >= 5 && hello && boxes && again);
+        check("code blocks are found, with their indentation, and the words before each one",
+              blocks == 7 && hello && hello->blocks.size() == 1 && hello->blocks[0].code.find("\n    std::cout << \"Hello, reader!\"") != std::string::npos &&
+                  !hello->blocks[0].before.empty() && hello->blocks[0].before.back().find("smallest useful program") != std::string::npos);
+        const CodeBlock* fragment = nullptr;
+        for (const Section& sc : secs)
+            for (const CodeBlock& b : sc.blocks)
+                if (b.code.rfind("int width", 0) == 0) fragment = &b;
+        const std::vector<Candidate> wrapped = fragment ? candidates_for(*fragment, false) : std::vector<Candidate>();
+        check("a few lines are wrapped into a whole program with main", !wrapped.empty() && wrapped[0].cpp && wrapped[0].code.find("int main()") != std::string::npos &&
+                                                                          wrapped[0].code.find("#include <iostream>") != std::string::npos);
+        const pdf::Document dc2 = pdf::read_file(fixture(L"book_c.pdf"));
+        const std::vector<Section> c_secs = sections_from_pdf(dc2);
+        const std::vector<Candidate> c_first = !c_secs.empty() && !c_secs[0].blocks.empty() ? candidates_for(c_secs[0].blocks[0], true) : std::vector<Candidate>();
+        check("a C book's code is tried as C first", c_secs.size() == 2 && !c_first.empty() && !c_first[0].cpp);
+        // a page's date, title and number in its margins are not part of the book; chapter headings (even at the very top) are
+        const pdf::Document dh = pdf::read_file(fixture(L"book_headers.pdf"));
+        const std::vector<Section> h_secs = sections_from_pdf(dh);
+        bool margins_left_out = dh.ok && h_secs.size() == 4, chapters_kept = h_secs.size() == 4;
+        for (const Section& sc : h_secs) {
+            for (const std::string& p : sc.paragraphs) margins_left_out = margins_left_out && p.find("file:///") == std::string::npos && p.find(" AM Header Test Book") == std::string::npos;
+            for (const CodeBlock& b : sc.blocks) margins_left_out = margins_left_out && b.code.find("file:///") == std::string::npos;
+        }
+        chapters_kept = chapters_kept && h_secs.size() == 4 && h_secs[1].title == "Chapter 1 Counting Up" && h_secs[2].title == "Chapter 2 Doubling" &&
+                        h_secs[3].title == "Chapter 3 Greeting";
+        check("running heads and page numbers in the margins are left out", margins_left_out);
+        check("chapter headings at the top of a page are kept (and each starts a section)", chapters_kept);
+
+        // making the lessons for real
+        const std::size_t builtin = builtin_lesson_count();
+        bool saw_reading = false, saw_trying = false;
+        a.start_book_import(fixture(L"book_cpp.pdf"), false);
+        check("importing starts on the Settings page", m.book_state == BookState::Working && m.page == Page::Settings && layout_ok(a));
+        const bool finished = pump(
+            [&] {
+                saw_reading = saw_reading || m.book_status.rfind("Reading page", 0) == 0;
+                saw_trying = saw_trying || m.book_status.rfind("Trying code sample", 0) == 0;
+                return m.book_state != BookState::Working;
+            },
+            600000);
+        check("it says what it is doing (the page it is on, the code sample it is trying)", finished && saw_trying);
+        check("it finishes: 'Made N lessons from ...'", m.book_state == BookState::Done && m.book_message.rfind("Made ", 0) == 0 && m.book_message.find("Tiny C++ Book") != std::string::npos);
+        const std::vector<ImportedCourse> mine = imported_courses();
+        check("the course is saved in its folder with its details",
+              mine.size() == 1 && mine[0].name == "Tiny C++ Book" && mine[0].lessons == 14 && mine[0].programs == 5 && mine[0].source == "book_cpp.pdf" &&
+                  fs::exists(courses_root() / mine[0].folder / "course.json"));
+        bool ids_ok = mine.size() == 1 && lessons().size() == builtin + 14;
+        std::set<std::string> ids;
+        for (const Lesson& ls : lessons()) ids_ok = ids_ok && ids.insert(ls.id).second;
+        for (std::size_t i = builtin; ids_ok && i < lessons().size(); ++i) ids_ok = lessons()[i].id.rfind(mine[0].folder + ".", 0) == 0 && lessons()[i].course >= kFirstImportedCourse;
+        check("the lessons come after the built-in ones, and every id is unique and starts with the course folder", ids_ok);
+        bool course_listed = false;
+        for (const Course& c : courses()) course_listed = course_listed || (c.imported && c.name == "Tiny C++ Book" && c.number >= kFirstImportedCourse);
+        check("the course is in the course list", course_listed);
+
+        // every lesson is checked with the real compiler: the program runs, the gapped one fails, the full one passes, the changed one passes
+        int runs = 0, runs_pass = 0, gaps = 0, gaps_fail = 0, gaps_pass = 0, changes = 0, changes_fail = 0, changes_pass = 0;
+        for (std::size_t i = builtin; i < lessons().size(); ++i) {
+            const Lesson ls = lessons()[i];
+            const bool passes = check_lesson(ls, ls.starter, ls.input).passed;
+            if (ls.title.rfind("Run:", 0) == 0) {
+                ++runs;
+                runs_pass += passes;
+            } else if (ls.title.rfind("Gap:", 0) == 0) {
+                ++gaps;
+                gaps_fail += !passes;
+                std::string code = ls.starter;
+                const std::size_t gap = code.find("// ...");
+                const std::size_t hint_at = ls.hint.find("\n\n    ");
+                if (gap != std::string::npos && hint_at != std::string::npos) {
+                    code.replace(gap, 6, ls.hint.substr(hint_at + 6));
+                    gaps_pass += check_lesson(ls, code, ls.input).passed;
+                }
+            } else if (ls.title.rfind("Change:", 0) == 0) {
+                ++changes;
+                changes_fail += !passes;
+                std::string code = ls.starter;
+                const std::size_t hint_at = ls.hint.find("\n\n    ");
+                const std::string old_line = ls.instructions.size() >= 3 ? ls.instructions[2].substr(4) : std::string();
+                const std::size_t at = old_line.empty() ? std::string::npos : code.find(old_line);
+                if (at != std::string::npos && hint_at != std::string::npos) {
+                    code.replace(at, old_line.size(), ls.hint.substr(hint_at + 6));
+                    changes_pass += check_lesson(ls, code, ls.input).passed;
+                }
+            }
+        }
+        check("every 'Run it' lesson passes as it is", runs == 5 && runs_pass == 5);
+        check("every 'Fill the gap' lesson fails with the gap, and passes with the missing line put back", gaps == 5 && gaps_fail == 5 && gaps_pass == 5);
+        check("every 'Change it' lesson fails as it is, and passes with the number changed", changes == 4 && changes_fail == 4 && changes_pass == 4);
+        check("the sample that asks for a number is given an answer", lessons()[builtin + 11].input == "5\n3\n4\n" && lessons()[builtin + 11].expected.find("Double is 10") != std::string::npos);
+        check("the sample that does not build was left out, and the same sample twice made one set", mine.size() == 1 && mine[0].programs == 5);
+
+        reload_lessons();
+        check("after reading the courses again, the course and its lessons are still there", imported_courses().size() == 1 && lessons().size() == builtin + 14);
+
+        // the Settings page
+        click(Control::NavHome);
+        click(Control::NavSettings);
+        check("Settings opens from the rail and lists the course", m.page == Page::Settings && m.my_courses.size() == 1 && a.layout.set_rows.size() == 1);
+        int at_index = -1;
+        const Rect& rail_rect = a.layout.nav_settings;
+        check("the gear is at the bottom of the rail and can be hit",
+              rail_rect.w > 0 && a.hit(rail_rect.x + 5, rail_rect.y + 5, at_index) == Control::NavSettings && rail_rect.y > a.layout.nav_badges.y);
+        const Rect& rm = a.layout.set_remove[0];
+        check("Remove can be hit", a.hit(rm.x + 5, rm.y + 5, at_index) == Control::CourseRemove && at_index == 0);
+        click(Control::ImportOpen);
+        bool head_shown = false;
+        for (const auto& [r, number] : a.layout.course_heads) head_shown = head_shown || (number >= kFirstImportedCourse && r.y >= a.layout.lessons_area.y - 1 && r.bottom() <= a.layout.lessons_area.bottom());
+        check("Open the lessons shows the course on the Lessons page", m.page == Page::Lessons && head_shown);
+        click(Control::NavSettings);
+        click(Control::CourseRemove, 0);
+        check("Remove asks first", m.confirm_remove == 0 && imported_courses().size() == 1);
+        press(VK_ESCAPE);
+        check("Esc keeps the course", m.confirm_remove < 0 && m.page == Page::Settings && imported_courses().size() == 1);
+        click(Control::CourseRemove, 0);
+        click(Control::CourseRemoveNo);
+        check("'Keep it' keeps the course", m.confirm_remove < 0 && imported_courses().size() == 1);
+        click(Control::CourseRemove, 0);
+        click(Control::CourseRemoveYes, 0);
+        check("'Yes, remove' deletes the course and its lessons",
+              imported_courses().empty() && m.my_courses.empty() && lessons().size() == builtin && !fs::exists(courses_root() / mine[0].folder));
+        press(VK_ESCAPE);
+        check("Esc on Settings goes home", m.page == Page::Home);
+
+        // an SDK folder
+        a.start_book_import(fixture(L"tiny_sdk"), true);
+        check("an SDK folder can be imported too", pump([&] { return m.book_state != BookState::Working; }, 600000) && m.book_state == BookState::Done);
+        const std::vector<ImportedCourse> sdk = imported_courses();
+        check("each sample program with a main becomes lessons, and C samples are C",
+              sdk.size() == 1 && sdk[0].programs == 3 && sdk[0].lessons >= 6 && sdk[0].language == "C and C++" && lessons().size() == builtin + static_cast<std::size_t>(sdk[0].lessons));
+        bool c_lesson = false;
+        for (std::size_t i = builtin; i < lessons().size(); ++i) c_lesson = c_lesson || (!lessons()[i].cpp && lessons()[i].starter.find("squared") != std::string::npos);
+        check("a .c sample is a C lesson", c_lesson);
+        if (!sdk.empty()) remove_imported_course(sdk[0].folder);
+        reload_lessons();
+
+        // problems are said in plain words, and Cancel stops it
+        a.start_book_import(fixture(L"book_locked.pdf"), false);
+        check("a locked PDF makes no lessons and says why",
+              pump([&] { return m.book_state != BookState::Working; }, 60000) && m.book_state == BookState::Failed && m.book_message.find("locked") != std::string::npos &&
+                  imported_courses().empty());
+        a.start_book_import(fixture(L"book_cpp.pdf"), false);
+        click(Control::ImportCancel);
+        check("Cancel stops the import and saves nothing",
+              pump([&] { return m.book_state != BookState::Working; }, 300000) && m.book_state == BookState::Failed && m.book_message.find("Stopped") != std::string::npos &&
+                  imported_courses().empty() && lessons().size() == builtin);
+        size_t leftovers = 0;
+        std::error_code leftover_ec;
+        for (const auto& e : fs::directory_iterator(courses_root(), leftover_ec)) leftovers += e.is_directory();
+        check("nothing half-made is left behind", leftovers == 0);
+        click(Control::NavHome);
+    }
+
     log << "\n" << passes << " passed, " << fails << " failed\n";
     DestroyWindow(hwnd);
     MSG msg;
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
     std::filesystem::remove(progress, ec);
+    std::filesystem::remove_all(test_courses, ec);
     CoUninitialize();
     return fails;
 }

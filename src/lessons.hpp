@@ -26,15 +26,23 @@ struct Lesson {
     std::string practice;                    // a Practice program with the same idea in it ("pizza_party.cpp"), or empty
 };
 
+constexpr int kFirstImportedCourse = 100;   // courses made from a book or SDK are numbered from here
+
 struct Course {
-    int number;
-    const char* tag;    // "C++ 1", "C 3"
-    const char* name;
+    int number = 0;
+    std::string tag;    // "C++ 1", "C 3", "Book 1"
+    std::string name;
+    bool imported = false;   // made from a book or an SDK (Settings)
+    std::string folder;      // imported: its folder under the courses folder
 };
 
-const std::vector<Course>& courses();     // in the order they are shown and taken: the C++ track first
-const std::vector<Lesson>& lessons();     // loaded once, in file-name order
+const std::vector<Course>& courses();     // in the order they are shown and taken: the C++ track first, then the imported courses
+const std::vector<Lesson>& lessons();     // the built-in lessons in file-name order, then each imported course's
 std::vector<int> lesson_order();          // lessons() indexes in course order
+// Reads the imported courses again (after one was made or removed). The built-in lessons keep their places in lessons(); the imported
+// ones come after them, so an index of an imported lesson means something else afterwards.
+void reload_lessons();
+std::size_t builtin_lesson_count();
 
 // The result of running a lesson's code.
 struct LessonCheck {

@@ -49,6 +49,7 @@ Layout compute_layout(const Model& m, float width, float height) {
         l.nav_practice = {8, kTitleBarHeight + 4 + 60, 56, 56};
         l.nav_learn = {8, kTitleBarHeight + 4 + 120, 56, 56};
         l.nav_badges = {8, kTitleBarHeight + 4 + 180, 56, 56};
+        l.nav_settings = {8, l.rail.bottom() - 60, 56, 56};
     }
 
     l.toast = {(width - 420) / 2, kTitleBarHeight + 12, 420, 68};
@@ -200,6 +201,32 @@ Layout compute_layout(const Model& m, float width, float height) {
         l.summary_tip = {c.x + 24, c.bottom() - 20 - 92, lw, 92};
         l.summary_done = {c.x + 24, l.summary_week.bottom() + 16, lw, std::max(0.0f, l.summary_tip.y - 16 - (l.summary_week.bottom() + 16))};
         l.summary_kinds = {c.x + 24 + lw + 20, y, std::max(0.0f, c.w - 48 - lw - 20), std::max(0.0f, c.bottom() - 20 - y)};
+        break;
+    }
+
+    case Page::Settings: {
+        l.card_a = c;
+        const float x = c.x + 24, w = std::max(0.0f, c.w - 48);
+        l.set_make = {x, c.y + 88, w, 232};
+        const Rect& p = l.set_make;
+        l.set_pdf = {p.x + 20, p.y + 100, 230, 52};
+        l.set_folder = {l.set_pdf.right() + 12, p.y + 100, 270, 52};
+        l.set_action = {p.right() - 20 - 200, p.y + 168, 200, 48};
+        l.set_status = {p.x + 20, p.y + 164, std::max(0.0f, l.set_action.x - 16 - (p.x + 20)), 56};
+        l.set_list = {x, p.bottom() + 20, w, std::max(0.0f, c.bottom() - 20 - (p.bottom() + 20))};
+        constexpr float row_h = 72, row_gap = 8;
+        const float room = l.set_list.h - 34;
+        const int fit = std::max(1, static_cast<int>((room + row_gap) / (row_h + row_gap)));
+        const int total = static_cast<int>(m.my_courses.size());
+        l.set_first = std::clamp(m.settings_scroll, 0, std::max(0, total - fit));
+        for (int i = l.set_first; i < total && i < l.set_first + fit; ++i) {
+            const Rect r{l.set_list.x, l.set_list.y + 34 + static_cast<float>(i - l.set_first) * (row_h + row_gap), l.set_list.w, row_h};
+            l.set_rows.push_back(r);
+            l.set_remove.push_back({r.right() - 16 - 130, r.y + 18, 130, 36});
+            l.set_yes.push_back({r.right() - 16 - 130, r.y + 18, 130, 36});
+            l.set_no.push_back({r.right() - 16 - 130 - 8 - 110, r.y + 18, 110, 36});
+        }
+        l.set_hidden = std::max(0, total - l.set_first - fit);
         break;
     }
 

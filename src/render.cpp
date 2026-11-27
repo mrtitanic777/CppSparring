@@ -368,8 +368,8 @@ struct Draw {
     D2D1_COLOR_F gold() const { return pal.dark ? color(0xFFC83D) : color(0xC98A00); }
 
     // A button with a glyph before its words.
-    void icon_button(Control c, const Rect& r, wchar_t icon, const std::wstring& label, bool enabled, bool accent) {
-        button(c, r, L"", enabled, accent);
+    void icon_button(Control c, const Rect& r, wchar_t icon, const std::wstring& label, bool enabled, bool accent, int index = -1) {
+        button(c, r, L"", enabled, accent, index);
         const float tw = R.measure(label, 0, 15, accent ? kSemibold : kNormal);
         const float x = r.x + (r.w - tw - 26) / 2;
         const D2D1_COLOR_F fg = accent ? (enabled ? pal.accent_text : color(0xFFFFFF, 0.6f)) : alpha(pal.text, enabled ? 1.0f : 0.45f);
@@ -521,7 +521,8 @@ void draw_rail(Draw& d) {
     } items[] = {{Control::NavHome, Page::Home, &d.l.nav_home, L'\xE80F', L"Home", true},
                  {Control::NavPractice, Page::Practice, &d.l.nav_practice, L'\xE945', L"Practice", true},
                  {Control::NavLearn, Page::Lessons, &d.l.nav_learn, L'\xE7BE', L"Lessons", true},
-                 {Control::NavBadges, Page::Badges, &d.l.nav_badges, L'\xE734', L"Badges", true}};
+                 {Control::NavBadges, Page::Badges, &d.l.nav_badges, L'\xE734', L"Badges", true},
+                 {Control::NavSettings, Page::Settings, &d.l.nav_settings, L'\xE713', L"Settings", true}};
     (void)loaded;
     if (d.l.rail.w <= 0) return;
     for (const auto& it : items) {
@@ -573,12 +574,16 @@ void draw_status(Draw& d) {
     case Page::Quiz: text = "Answer from memory (keys A to D). Remembering is what makes it stick."; break;
     case Page::QuestDone: text = "Quest done! Open the chest, then go again or take a break."; break;
     case Page::Setup: text = "CppSparring needs Microsoft's free C++ tools to build programs."; break;
+    case Page::Settings: text = "Make lessons from your own books. Everything stays on this computer."; break;
     }
     if (m.tools == Tools::Missing && m.page != Page::Setup) {
         dot = pal.warn;
         text = "Setup isn't finished, so programs can't be built yet. Press Finish setting up on Home.";
     }
-    if (m.importing) {
+    if (m.book_state == BookState::Working) {
+        dot = pal.accent;
+        text = "Making lessons from your book. You can keep using CppSparring meanwhile.";
+    } else if (m.importing) {
         dot = pal.accent;
         text = "Reading your program…";
     } else if (m.running) {
@@ -1581,6 +1586,89 @@ void draw_summary(Draw& d) {
            DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
 }
 
+// ---- Settings: make lessons from a book or an SDK
+void draw_settings(Draw& d) {
+    const Palette& pal = d.pal;
+    const Layout& l = d.l;
+    const Model& m = d.m;
+    d.card(l.card_a);
+    d.header(l.card_a, L"Settings", L"Make lessons from your own books. Everything stays on this computer.");
+
+    // ---- the panel that makes lessons
+    const Rect& p = l.set_make;
+    const bool working = m.book_state == BookState::Working;
+    d.fill(p, 8, alpha(pal.accent, pal.dark ? 0.1f : 0.06f));
+    d.stroke(p, 8, alpha(pal.accent, 0.3f));
+    d.badge(Rect{p.x + 20, p.y + 18, 44, 44}, 22, pal.accent, L"\xE736", true, 18);
+    d.text(L"Make lessons from a book or SDK", Rect{p.x + 76, p.y + 16, p.w - 96, 28}, 1, 18, kSemibold, pal.text);
+    d.text(L"Pick a programming book (a PDF) or an SDK folder. I find the code in it, run every sample for real, and turn the ones that work into little lessons.",
+           Rect{p.x + 76, p.y + 46, p.w - 96, 44}, 0, 13.5f, kNormal, pal.text2, DWRITE_TEXT_ALIGNMENT_LEADING, true, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+    d.icon_button(Control::ImportPdf, l.set_pdf, L'\xE8A5', L"Open a PDF…", !working, true);
+    d.icon_button(Control::ImportFolder, l.set_folder, L'\xE838', L"Open an SDK folder…", !working, false);
+
+    // what is happening, or what happened
+    const Rect& st = l.set_status;
+    const Rect mark{st.x, st.y + 6, 36, 36};
+    switch (m.book_state) {
+    case BookState::Working:
+        d.circle(mark, pal.accent);
+        d.glyph(L'\xE895', mark, 15, pal.accent_text);
+        d.text(widen(m.book_status.empty() ? std::string("Working…") : m.book_status), Rect{st.x + 48, st.y, st.w - 48, 28}, 0, 15, kSemibold, pal.text);
+        d.text(L"This can take a few minutes for a big book.", Rect{st.x + 48, st.y + 26, st.w - 48, 22}, 0, 12.5f, kNormal, pal.text2);
+        d.button(Control::ImportCancel, l.set_action, L"Cancel", true, false);
+        break;
+    case BookState::Done:
+        d.circle(mark, pal.ok);
+        d.glyph(L'\xE73E', mark, 15, pal.dark ? color(0x000000) : color(0xFFFFFF));
+        d.text(widen(m.book_message), Rect{st.x + 48, st.y, st.w - 48, st.h}, 0, 15, kSemibold, pal.text, DWRITE_TEXT_ALIGNMENT_LEADING, true);
+        d.icon_button(Control::ImportOpen, l.set_action, L'\xE7BE', L"Open the lessons", true, true);
+        break;
+    case BookState::Failed:
+        d.circle(mark, pal.warn);
+        d.glyph(L'\xE7BA', mark, 15, pal.dark ? color(0x000000) : color(0xFFFFFF));
+        d.text(widen(m.book_message), Rect{st.x + 48, st.y, st.w + l.set_action.w + 8 - 48, st.h}, 0, 14, kNormal, pal.text, DWRITE_TEXT_ALIGNMENT_LEADING, true);
+        break;
+    case BookState::Idle:
+        d.text(L"Works best with PDFs that have real words in them (not scans of pages) and code in C or C++. Nothing leaves this computer.",
+               Rect{st.x, st.y, p.w - 40, st.h}, 0, 12.5f, kNormal, pal.text3, DWRITE_TEXT_ALIGNMENT_LEADING, true);
+        break;
+    }
+
+    // ---- the courses already made
+    const Rect& li = l.set_list;
+    d.text(L"YOUR LESSON COURSES", Rect{li.x, li.y, li.w, 20}, 0, 11, kSemibold, pal.text3);
+    if (m.my_courses.empty()) {
+        d.text(L"Nothing here yet. Make lessons from a book or an SDK above, and they will show up here and on the Lessons page.",
+               Rect{li.x, li.y + 30, li.w, 48}, 0, 14, kNormal, pal.text2, DWRITE_TEXT_ALIGNMENT_LEADING, true, DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        return;
+    }
+    for (std::size_t k = 0; k < l.set_rows.size(); ++k) {
+        const std::size_t i = static_cast<std::size_t>(l.set_first) + k;
+        if (i >= m.my_courses.size()) break;
+        const ImportedCourse& c = m.my_courses[i];
+        const Rect& r = l.set_rows[k];
+        d.fill(r, 8, alpha(pal.text, pal.dark ? 0.045f : 0.03f));
+        d.stroke(r, 8, pal.card_stroke);
+        d.badge(Rect{r.x + 16, r.y + 16, 40, 40}, 20, pal.purple, L"\xE736", true, 16);
+        const bool asking = m.confirm_remove == static_cast<int>(i);
+        const float right = (asking ? l.set_no[k].x : l.set_remove[k].x) - 12;
+        d.text(widen(c.name), Rect{r.x + 70, r.y + 10, right - (r.x + 70), 28}, 0, 15, kSemibold, pal.text);
+        if (asking) {
+            d.text(L"Remove this course? Its lessons will be deleted.", Rect{r.x + 70, r.y + 38, right - (r.x + 70), 24}, 0, 12.5f, kNormal, pal.warn);
+            d.button(Control::CourseRemoveNo, l.set_no[k], L"Keep it", true, false, static_cast<int>(i));
+            d.button(Control::CourseRemoveYes, l.set_yes[k], L"Yes, remove", true, true, static_cast<int>(i));
+        } else {
+            std::wstring sub = std::format(L"{} lessons  ·  {}", c.lessons, widen(c.language));
+            if (!c.source.empty()) sub += L"  ·  from " + widen(c.source);
+            if (!c.date.empty()) sub += L"  ·  made " + widen(c.date);
+            d.text(sub, Rect{r.x + 70, r.y + 38, right - (r.x + 70), 24}, 0, 12.5f, kNormal, pal.text2);
+            d.icon_button(Control::CourseRemove, l.set_remove[k], L'\xE74D', L"Remove", true, false, static_cast<int>(i));
+        }
+    }
+    if (l.set_hidden > 0)
+        d.text(std::format(L"Scroll for {} more  ↓", l.set_hidden), Rect{li.x, li.bottom() - 18, li.w, 16}, 0, 11, kNormal, pal.text3, DWRITE_TEXT_ALIGNMENT_CENTER);
+}
+
 // A badge or a new level, popping in under the title bar for a few seconds.
 void draw_cheer(Draw& d) {
     const Model& m = d.m;
@@ -1615,7 +1703,7 @@ void draw_lessons(Draw& d) {
     const Layout& l = d.l;
     const Progress& p = d.m.progress;
     d.card(l.card_a);
-    d.header(l.card_a, L"Write-it lessons", L"Read a little, write a little C, and the real compiler checks it. From your CodingTeacher lessons.");
+    d.header(l.card_a, L"Write-it lessons", L"Read a little, write a little code, and the real compiler checks it. Your own books are here too (see Settings).");
     const auto& all = lessons();
     if (all.empty()) {
         d.empty_state(l.lessons_area, L'\xE7BE', pal.orange, L"No lessons found", L"Put the lessons folder next to cppsparring.exe.");
@@ -1640,11 +1728,11 @@ void draw_lessons(Draw& d) {
             }
         const Course& course = course_for(number);
         const bool cpp_track = number >= 10;
-        const D2D1_COLOR_F hue = cpp_track ? pal.accent : pal.teal;
+        const D2D1_COLOR_F hue = number >= kFirstImportedCourse ? pal.purple : cpp_track ? pal.accent : pal.teal;
         const Rect chip{r.x, r.y + 5, 64, 20};
         d.fill(chip, 10, alpha(hue, pal.dark ? 0.2f : 0.12f));
         d.text(widen(course.tag), chip, 0, 10, kSemibold, hue, DWRITE_TEXT_ALIGNMENT_CENTER);
-        d.text(widen(course_for(number).name), Rect{chip.right() + 10, r.y, r.w - 200, r.h}, 1, 16, kSemibold, pal.text);
+        d.text(widen(course.name), Rect{chip.right() + 10, r.y, r.w - 200, r.h}, 1, 16, kSemibold, pal.text);
         d.text(std::format(L"{}/{}", got, n), Rect{r.right() - 80, r.y, 80, r.h}, 1, 13, kSemibold, got == n ? pal.ok : pal.text3,
                DWRITE_TEXT_ALIGNMENT_TRAILING);
     }
@@ -2164,6 +2252,7 @@ HRESULT Renderer::paint(ID2D1RenderTarget* rt, const Model& model, const Layout&
         case Page::Break: draw_break(d); break;
         case Page::Badges: draw_badges(d); break;
         case Page::Summary: draw_summary(d); break;
+        case Page::Settings: draw_settings(d); break;
         case Page::Lessons: draw_lessons(d); break;
         case Page::Lesson: draw_lesson(d); break;
         case Page::Quiz: draw_quiz(d); break;

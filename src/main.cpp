@@ -9,6 +9,8 @@
 
 #include "speech.hpp"
 #include "teacher.hpp"
+#include "importer.hpp"
+#include "pdf.hpp"
 #include "window.hpp"
 
 // cppsparring [FILE]
@@ -22,6 +24,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {
     if (argv) LocalFree(argv);
 
     if (!args.empty() && args[0] == L"--selftest" && args.size() >= 2) return sparring::self_test(args[1]);
+    if (!args.empty() && args[0] == L"--pdf-text" && args.size() >= 3) return sparring::pdf_dump(args[1], args[2]);
+    if (!args.empty() && args[0] == L"--pdf-fuzz" && args.size() >= 3) return sparring::pdf_fuzz(args[1], std::stoi(args[2]));
+    if (!args.empty() && args[0] == L"--import" && args.size() >= 4) return sparring::import_cli(args[1], args[2], args[3]);
     if (!args.empty() && args[0] == L"--make-icon" && args.size() >= 2) return sparring::make_icon(args[1]);
     if (!args.empty() && args[0] == L"--register-open-with") return sparring::register_open_with();
     // cppsparring --hear SPEECH.wav OUT.txt: what Bit's speech recognizer hears in a recording (testing it without a microphone)
@@ -55,6 +60,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {
             else if (args[i] == L"--boss") o.boss = true;
             else if (args[i] == L"--chest") o.chest = true;
             else if (args[i] == L"--setup" && more) o.setup = std::stoi(args[++i]);
+            else if (args[i] == L"--import-first" && more) o.import_path = args[++i];
         }
         return sparring::screenshot(o);
     }
