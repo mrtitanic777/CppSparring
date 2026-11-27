@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "importer.hpp"
 #include "json.hpp"
 
 namespace sparring {
@@ -33,12 +34,13 @@ int course_of(int n) {
     return 7;
 }
 
-std::vector<Lesson> load() {
+// Reads every lesson .json in a folder. `prefix` goes in front of each id (an imported course's folder, so ids stay unique).
+std::vector<Lesson> load_folder(const stdfs::path& dir, const std::string& prefix, int course_number) {
     std::vector<Lesson> out;
     std::error_code ec;
     std::vector<stdfs::path> files;
-    for (const auto& e : stdfs::directory_iterator(exe_dir() / "lessons", ec))
-        if (e.path().extension() == ".json") files.push_back(e.path());
+    for (const auto& e : stdfs::directory_iterator(dir, ec))
+        if (e.path().extension() == ".json" && e.path().filename() != "course.json") files.push_back(e.path());
     std::sort(files.begin(), files.end());
     for (const stdfs::path& p : files) {
         std::ifstream f(p, std::ios::binary);
@@ -50,8 +52,9 @@ std::vector<Lesson> load() {
         if (v.type != json::JType::Object) continue;
         Lesson l;
         const std::u8string stem = p.stem().u8string();
-        l.id.assign(stem.begin(), stem.end());
-        l.number = std::atoi(l.id.c_str());
+        const std::string file_id(stem.begin(), stem.end());
+        l.id = prefix + file_id;
+        l.number = std::atoi(file_id.c_str());
         l.title = v.text("title");
         if (const json::JValue* ins = v.find("instructions")) {
             if (ins->type == json::JType::Array)
@@ -66,16 +69,21 @@ std::vector<Lesson> load() {
         l.practice = v.text("practice");
         l.cpp = v.text("language") == "cpp";
         if (const json::JValue* n = v.find("number")) l.number = static_cast<int>(n->num);
-        if (const json::JValue* c = v.find("course")) l.course = static_cast<int>(c->num);
+        if (course_number > 0) l.course = course_number;
+        else if (const json::JValue* c = v.find("course")) l.course = static_cast<int>(c->num);
         else l.course = course_of(l.number);
         if (!l.title.empty()) out.push_back(std::move(l));
     }
     return out;
 }
 
-}  // namespace
+struct Store {
+    std::vector<Lesson> all;
+    std::vector<Course> courses;
+    std::size_t builtin = 0;
+};
 
-const std::vector<Course>& courses() {
+const std::vector<Course>& builtin_courses() {
     static const std::vector<Course> all = {
         {10, "C++ 1", "C++: first steps"},     {11, "C++ 2", "C++: jobs, references and blueprints"},
         {12, "C++ 3", "C++: lists, words and games"}, {13, "C++ 4", "C++: bugs to watch for"},
@@ -87,10 +95,51 @@ const std::vector<Course>& courses() {
     return all;
 }
 
-const std::vector<Lesson>& lessons() {
-    static const std::vector<Lesson> all = load();
-    return all;
+Store& store() {
+    static Store s = [] {
+        Store st;
+        st.all = load_folder(exe_dir() / "lessons", "", 0);
+        st.builtin = st.all.size();
+        st.courses = builtin_courses();
+        return st;
+    }();
+    return s;
 }
+
+}  // namespace
+
+void reload_lessons() {
+    Store& s = store();
+    s.all.resize(s.builtin);
+    s.courses = builtin_courses();
+    int n = 0;
+    for (const ImportedCourse& c : imported_courses()) {
+        std::vector<Lesson> mine = load_folder(courses_root() / stdfs::path(std::u8string(c.folder.begin(), c.folder.end())), c.folder + ".", kFirstImportedCourse + n);
+        if (mine.empty()) continue;
+        Course course;
+        course.number = kFirstImportedCourse + n;
+        course.tag = "Book " + std::to_string(n + 1);
+        course.name = c.name;
+        course.imported = true;
+        course.folder = c.folder;
+        s.courses.push_back(std::move(course));
+        for (Lesson& l : mine) s.all.push_back(std::move(l));
+        ++n;
+    }
+}
+
+const std::vector<Course>& courses() {
+    static const bool first = (reload_lessons(), true);
+    (void)first;
+    return store().courses;
+}
+
+const std::vector<Lesson>& lessons() {
+    courses();   // (reads the imported courses the first time)
+    return store().all;
+}
+
+std::size_t builtin_lesson_count() { return store().builtin; }
 
 std::vector<int> lesson_order() {
     std::vector<int> out;

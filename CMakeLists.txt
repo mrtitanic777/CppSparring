@@ -38,6 +38,10 @@ add_executable(cppsparring WIN32
     src/quiz.hpp
     src/quest.cpp
     src/quest.hpp
+    src/importer.cpp
+    src/importer.hpp
+    src/pdf.cpp
+    src/pdf.hpp
     src/sound.cpp
     src/sound.hpp
     src/app.rc
@@ -46,6 +50,10 @@ add_executable(cppsparring WIN32
 # the lessons (from CodingTeacher's LearnC) sit next to the program, so they can be edited without rebuilding
 add_custom_command(TARGET cppsparring POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/lessons $<TARGET_FILE_DIR:cppsparring>/lessons)
+
+# small PDFs and an SDK folder for the self-test (cppsparring --selftest), next to the program too
+add_custom_command(TARGET cppsparring POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/tests/fixtures $<TARGET_FILE_DIR:cppsparring>/fixtures)
 
 target_include_directories(cppsparring PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_definitions(cppsparring PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)

@@ -100,12 +100,47 @@ Leave out `language` for C. `input` is what the program reads when it asks you t
 The C++ lessons are written by `tools/make_cpp_lessons.py` (`python tools/make_cpp_lessons.py lessons check`), which also writes
 each lesson's worked solution into `check` so it can be compiled and compared with the expected output.
 
+## Make lessons from a book or SDK
+
+Open **Settings** (the gear at the bottom of the left rail), then choose **Open a PDF...** (a programming book) or **Open an SDK folder...**.
+You can also drop a PDF or a folder on the window. CppSparring reads it, finds the code samples, builds and runs every one with the
+real compiler, and turns the ones that work into lessons. There is no AI: the words come from the book itself, and every lesson is
+checked before it is saved.
+
+![Settings](docs/settings.png)
+
+Each program that works makes up to three lessons:
+
+- **Run**: read the explanation, press Run, and see what it prints.
+- **Gap**: the same program with one line taken out (`// ...`). Put back a line that makes it print the same thing. The hint is the line.
+- **Change**: change one number in the code and run it to see the output change.
+
+![An imported lesson](docs/imported_lesson.png)
+
+Good to know:
+
+- The courses are kept in `%LOCALAPPDATA%\CppSparring\courses\<name>\` (a `course.json` and one `.json` per lesson, the same
+  format as the lessons folder). Settings lists them, and **Remove** deletes one after asking. They also show up on the Lessons page
+  under their own heading. The Daily Quest keeps to the built-in lessons.
+- Only C and C++ code is used. A few lines of code without `main` are wrapped into a program; a sample that does not build, runs
+  forever, crashes, prints nothing or different things each time (random numbers, the time) is left out, and so is any code that
+  deletes files, starts programs or talks to the network. A book makes at most 60 lessons, spread over the whole book.
+- The PDF reader is written from scratch (no libraries). It reads ordinary and compressed PDFs, but not scanned books (pages that are
+  only pictures have no words to read) and not PDFs that need a password. Code has to be in a monospace font to be found. Books laid out
+  in several columns, or with code as pictures, work badly or not at all.
+- An SDK folder gives one lesson set per sample `.c`/`.cpp` file with a `main`, grouped by subfolder, using the comment at the top of the
+  file and any `README`, `.md`, `.txt` or `.html` next to it as the explanation. Samples that need other files from the folder do not
+  build on their own and are skipped.
+
 ## For developers
 
 - `cppsparring --selftest LOG` drives the real window, never shown, through a quest, a lesson, a Fix it puzzle, a Bug Boss, typed
-  answers and the replay, and writes what passed and failed to `LOG`. It uses a throwaway progress file.
-- `cppsparring --screenshot OUT.png --page home|practice|look|break|fix|lessons|lesson|quiz|questdone|badges|summary|setup [--file X.cpp|example:N]
+  answers and the replay, the PDF reader and the lesson maker (on the small books in `tests/fixtures`, which are copied next to the program), and writes what passed and failed to `LOG`. It uses a throwaway progress file and a throwaway courses folder.
+- `cppsparring --screenshot OUT.png --page home|practice|look|break|fix|lessons|lesson|quiz|questdone|badges|summary|setup|settings [--file X.cpp|example:N]
   [--guess 0-3] [--replay STEP] [--lesson N] [--run] [--code FILE] [--dark]` draws the window into a PNG without showing it.
+- `cppsparring --pdf-text IN.pdf OUT.txt` writes what the PDF reader sees (each line with its size, bold and monospace marks).
+  `cppsparring --import IN.pdf|FOLDER COURSES_DIR LOG` shows the sections and code blocks found, then makes the course into `COURSES_DIR`.
+  `--screenshot ... --page settings|lesson|lessons --import-first BOOK.pdf|FOLDER` makes lessons from it for real (into a temporary folder) first.
 - `cppsparring --make-icon OUT.ico` redraws the app icon.
 
 ## License

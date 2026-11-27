@@ -51,9 +51,10 @@ int pick_quiz(const Progress& p, Dice& dice, int avoid) {
 int next_lesson(const Progress& p, Dice& dice) {
     const auto& all = lessons();
     if (all.empty()) return -1;
+    // (the Daily Quest keeps to the built-in lessons: a book's lessons are for the Lessons page)
     for (int i : lesson_order())
-        if (!p.lessons_done.count(all[static_cast<std::size_t>(i)].id)) return i;
-    return dice.below(static_cast<int>(all.size()));
+        if (all[static_cast<std::size_t>(i)].course < kFirstImportedCourse && !p.lessons_done.count(all[static_cast<std::size_t>(i)].id)) return i;
+    return dice.below(static_cast<int>(builtin_lesson_count()));
 }
 
 }  // namespace

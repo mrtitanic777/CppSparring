@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "compile.hpp"
+#include "importer.hpp"
 #include "lessons.hpp"
 
 namespace sparring {
@@ -29,7 +30,7 @@ constexpr float kLookRowHeight = 108.0f;
 
 // The places (Home, Practice, Lessons, Badges) and what opens from them: a program's Look and Break steps, one lesson, and the
 // quest's own pages. The rail only ever lists places.
-enum class Page { Home, Practice, Look, Break, Badges, Lessons, Lesson, Quiz, QuestDone, Setup, Summary };
+enum class Page { Home, Practice, Look, Break, Badges, Lessons, Lesson, Quiz, QuestDone, Setup, Summary, Settings };
 
 enum class Control {
     None, CaptionMinimize, CaptionMaximize, CaptionClose, SoundToggle,
@@ -45,8 +46,12 @@ enum class Control {
     QuizAnswer, QuizNext,
     ChestOpen, QuestHome, QuestAgain,
     SetupRecheck, SetupInstaller, SetupContinue,
-    Grownups, SummaryBack
+    Grownups, SummaryBack,
+    NavSettings, ImportPdf, ImportFolder, ImportCancel, ImportOpen, CourseRemove, CourseRemoveYes, CourseRemoveNo
 };
+
+// Settings: making lessons from a book or an SDK folder.
+enum class BookState { Idle, Working, Done, Failed };
 
 // Whether this computer can build programs (checked when CppSparring starts).
 enum class Tools { Checking, Ready, Missing };
@@ -252,6 +257,15 @@ struct Model {
         return lesson >= 0 && lesson < static_cast<int>(lessons().size()) ? &lessons()[static_cast<std::size_t>(lesson)] : nullptr;
     }
 
+    // Settings: making lessons from a book or an SDK folder
+    BookState book_state = BookState::Idle;
+    std::string book_status;         // "Reading page 37 of 210"
+    std::string book_message;        // what was made, or what went wrong
+    std::string book_folder;         // the course just made
+    std::vector<ImportedCourse> my_courses;   // the imported courses (Settings lists them)
+    int confirm_remove = -1;         // the course (index of my_courses) being asked about
+    int settings_scroll = 0;
+
     // a quiz card
     int quiz = -1;
     int quiz_choice = -1;            // the shown position picked, -1 before answering
@@ -282,7 +296,7 @@ struct Layout {
     Rect caption_minimize, caption_maximize, caption_close, sound_button;
 
     bool focus = false;   // a quest is running: no rail and no status bar, just the step
-    Rect rail, nav_home, nav_practice, nav_learn, nav_badges;
+    Rect rail, nav_home, nav_practice, nav_learn, nav_badges, nav_settings;
     Rect content;
     // the quest's bar over the page while a quest runs
     Rect quest_bar, quest_skip, quest_quit;
@@ -344,6 +358,12 @@ struct Layout {
 
     // Quest done
     Rect done_card, chest, done_home, done_again;
+
+    // Settings: the panel that makes lessons, and the courses it made
+    Rect set_make, set_pdf, set_folder, set_status, set_action, set_list;
+    std::vector<Rect> set_rows, set_remove, set_yes, set_no;
+    int set_first = 0;
+    int set_hidden = 0;
 
     // Setup: what's needed to build programs
     Rect setup_card;

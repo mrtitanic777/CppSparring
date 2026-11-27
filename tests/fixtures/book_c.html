@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Tiny C Book</title>
+<style>
+body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.4; }
+h1 { font-size: 24pt; } h2 { font-size: 18pt; margin-top: 22pt; }
+pre { font-family: "Courier New", monospace; font-size: 10pt; background: #eee; padding: 6pt; }
+</style></head><body>
+<h1>Tiny C Book</h1>
+<h2>1. Printing</h2>
+<p>C prints with printf. The text goes in double quotes and the slash n at the end starts a new line.</p>
+<pre>#include &lt;stdio.h&gt;
+
+int main(void) {
+    printf("Hello from C\n");
+    return 0;
+}</pre>
+<h2>2. Math</h2>
+<p>C does arithmetic with the usual signs. Remember that dividing two whole numbers throws away the remainder.</p>
+<pre>#include &lt;stdio.h&gt;
+
+int main(void) {
+    int a = 17;
+    int b = 5;
+    printf("%d\n", a / b);
+    printf("%d\n", a % b);
+    return 0;
+}</pre>
+</body></html>

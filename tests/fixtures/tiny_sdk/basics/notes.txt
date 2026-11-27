@@ -1,0 +1,2 @@
+The basics folder shows how to print numbers and words.
+Numbers are printed with printf in C and with cout in C++.

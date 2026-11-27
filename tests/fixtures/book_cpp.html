@@ -1,0 +1,77 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Tiny C++ Book</title>
+<style>
+body { font-family: Georgia, serif; font-size: 11pt; line-height: 1.4; }
+h1 { font-size: 26pt; } h2 { font-size: 19pt; margin-top: 24pt; } h3 { font-size: 14pt; }
+pre { font-family: Consolas, monospace; font-size: 10pt; background: #f2f2f2; padding: 6pt; }
+</style></head><body>
+<h1>Tiny C++ Book</h1>
+<p>A very small book used to test the lesson maker. Read the text, run the code.</p>
+
+<h2>Chapter 1  Saying Hello</h2>
+<p>Every C++ program starts in a job called main. The computer runs the lines inside it, one after another. Printing words on the screen is done with cout.</p>
+<p>A semicolon ends each line that does something. Forgetting it is the most common mistake for a new programmer.</p>
+<p>Here is the smallest useful program.</p>
+<pre>#include &lt;iostream&gt;
+
+int main() {
+    std::cout &lt;&lt; "Hello, reader!" &lt;&lt; std::endl;
+    return 0;
+}</pre>
+<p>Run it and you will see the greeting appear.</p>
+
+<h2>Chapter 2  Boxes for Numbers</h2>
+<p>A variable is a named box that holds a value. The type in front of the name says what kind of value fits inside.</p>
+<h3>2.1 Whole numbers</h3>
+<p>An int holds whole numbers. You can print it by putting its name after the output arrows.</p>
+<pre>#include &lt;iostream&gt;
+
+int main() {
+    int apples = 3;
+    int pears = 4;
+    int total = apples + pears;
+    std::cout &lt;&lt; "Total fruit: " &lt;&lt; total &lt;&lt; "\n";
+    return 0;
+}</pre>
+<h3>2.2 Pieces of a program</h3>
+<p>Often a book shows only the interesting lines. These lines are not a whole program, but they can still be run.</p>
+<pre>int width = 6;
+int height = 7;
+std::cout &lt;&lt; "Area: " &lt;&lt; width * height &lt;&lt; "\n";</pre>
+<p>This next sample has a typo and will not build, so it must be skipped.</p>
+<pre>#include &lt;iostream&gt;
+int main() {
+    int broken = ;
+    std::cout &lt;&lt; broken;
+}</pre>
+
+<h2>Chapter 3  Doing Things Again</h2>
+<p>A loop repeats lines. The for loop counts for you, which saves a lot of typing.</p>
+<pre>#include &lt;iostream&gt;
+
+int main() {
+    for (int i = 1; i &lt;= 3; ++i) {
+        std::cout &lt;&lt; "Count " &lt;&lt; i &lt;&lt; "\n";
+    }
+    return 0;
+}</pre>
+<p>Here is the very same loop once more, as if the book repeated itself. The lesson maker should notice and make lessons for it only once.</p>
+<pre>#include &lt;iostream&gt;
+
+int main() {
+    for (int i = 1; i &lt;= 3; ++i) {
+        std::cout &lt;&lt; "Count " &lt;&lt; i &lt;&lt; "
+";
+    }
+    return 0;
+}</pre>
+<p>This one asks the person for a number, so the lesson maker gives it a simple answer.</p>
+<pre>#include &lt;iostream&gt;
+
+int main() {
+    int n = 0;
+    std::cin &gt;&gt; n;
+    std::cout &lt;&lt; "Double is " &lt;&lt; n * 2 &lt;&lt; "\n";
+    return 0;
+}</pre>
+</body></html>

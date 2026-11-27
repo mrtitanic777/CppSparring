@@ -10,7 +10,7 @@ int run_window(const std::wstring& file);
 struct ShotOptions {
     std::wstring out_png;
     std::wstring file;             // a .cpp, or "example:N"
-    std::wstring page = L"home";   // home | practice | look | break | fix | lessons | lesson | quiz | questdone | badges | summary | setup
+    std::wstring page = L"home";   // home | practice | look | break | fix | lessons | lesson | quiz | questdone | badges | summary | setup | settings
     int guess = -1;                // >= 0: answer the first challenge with this and really run it
     int replay_step = -1;          // >= 0: watch it run, stopped at this step
     int level = 0;                 // the Pick page's level tab (0: the highest open one)
@@ -24,6 +24,7 @@ struct ShotOptions {
     int quest_step = -1;           // >= 0: a quest is under way at this step
     bool boss = false;             // the quest is a Bug Boss
     bool chest = false;            // page questdone: the chest is open
+    std::wstring import_path;      // page lesson or settings: a PDF or a folder to really make lessons from first (into a temporary folder)
     int setup = 0;                 // page setup: 0 nothing installed, 1 Visual Studio but no Clang, 2 all set
 };
 int screenshot(const ShotOptions& o);

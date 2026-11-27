@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Header Test Book</title>
+<style>
+body { font-family: Georgia, serif; font-size: 11pt; line-height: 1.4; }
+h1 { font-size: 26pt; }
+h2 { font-size: 19pt; page-break-before: always; }
+pre { font-family: "Courier New", monospace; font-size: 10pt; background: #eee; padding: 6pt; }
+</style></head><body>
+<h1>Header Test Book</h1>
+<p>This book is printed with the browser's own header and footer, so every page has the date, the title and a page number in its margins. They are not part of the book and must be left out.</p>
+
+<h2>Chapter 1  Counting Up</h2>
+<p>A computer counts very quickly. The first sample shows a loop that counts for you and prints each number as it goes along.</p>
+<pre>#include &lt;stdio.h&gt;
+
+int main(void) {
+    for (int i = 1; i &lt;= 3; i++) {
+        printf("%d\n", i);
+    }
+    return 0;
+}</pre>
+<p>That is all there is to a counting loop. Change the numbers and it counts something else.</p>
+
+<h2>Chapter 2  Doubling</h2>
+<p>Doubling a number means multiplying it by two. The second sample does that with one box and prints the answer.</p>
+<pre>#include &lt;stdio.h&gt;
+
+int main(void) {
+    int n = 21;
+    printf("%d\n", n * 2);
+    return 0;
+}</pre>
+<p>Every page of this book has the same header and footer, and the chapter names must stay.</p>
+
+<h2>Chapter 3  Greeting</h2>
+<p>The last sample says hello in a friendly way, using printf and a short sentence between the quotes.</p>
+<pre>#include &lt;stdio.h&gt;
+
+int main(void) {
+    printf("Hello there\n");
+    return 0;
+}</pre>
+</body></html>
