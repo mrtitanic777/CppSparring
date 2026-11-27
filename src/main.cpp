@@ -1,9 +1,14 @@
 #include <windows.h>
+#include <objbase.h>
 #include <shellapi.h>
 
 #include <string>
 #include <vector>
 
+#include <fstream>
+
+#include "speech.hpp"
+#include "teacher.hpp"
 #include "window.hpp"
 
 // cppsparring [FILE]
@@ -19,6 +24,15 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {
     if (!args.empty() && args[0] == L"--selftest" && args.size() >= 2) return sparring::self_test(args[1]);
     if (!args.empty() && args[0] == L"--make-icon" && args.size() >= 2) return sparring::make_icon(args[1]);
     if (!args.empty() && args[0] == L"--register-open-with") return sparring::register_open_with();
+    // cppsparring --hear SPEECH.wav OUT.txt: what Bit's speech recognizer hears in a recording (testing it without a microphone)
+    if (!args.empty() && args[0] == L"--hear" && args.size() >= 3) {
+        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        const std::string heard = sparring::Ear::hear_file(args[1], sparring::spoken_phrases());
+        const sparring::Heard h = sparring::understand(heard);
+        std::ofstream(args[2]) << heard << "\n" << static_cast<int>(h.ask) << " " << h.line << " " << h.word << "\n";
+        CoUninitialize();
+        return heard.empty() ? 1 : 0;
+    }
     if (!args.empty() && args[0] == L"--screenshot" && args.size() >= 2) {
         sparring::ShotOptions o;
         o.out_png = args[1];
@@ -34,6 +48,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {
             else if (args[i] == L"--lesson" && more) o.lesson = std::stoi(args[++i]);
             else if (args[i] == L"--run") o.run_lesson = true;
             else if (args[i] == L"--code" && more) o.code_file = args[++i];
+            else if (args[i] == L"--buddy" && more) o.buddy = std::stoi(args[++i]);
             else if (args[i] == L"--hint") o.hint = true;
             else if (args[i] == L"--quiz" && more) o.quiz = std::stoi(args[++i]);
             else if (args[i] == L"--quest" && more) o.quest_step = std::stoi(args[++i]);

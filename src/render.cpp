@@ -1,4 +1,5 @@
 #include "render.hpp"
+#include "teacher.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -563,6 +564,7 @@ void draw_status(Draw& d) {
     case Page::Break: text = "Guess what will happen (keys 1 to 4), then press Enter to go on. Esc goes back."; break;
     case Page::Badges: text = "Your badges and stars stay, even after you close CppSparring."; break;
     case Page::Summary: text = "Progress is kept on this computer only. Nothing is sent anywhere."; break;
+    case Page::Name: text = "Your name stays on this computer. Bit uses it when it talks to you."; break;
     case Page::Lessons: text = "Pick a lesson. You'll write a little C, and the computer checks it for real."; break;
     case Page::Lesson:
         text = d.m.fixing ? "Find the bug, fix it, then press Run (or F5). Stuck? A hint is one click away."
@@ -1428,6 +1430,7 @@ void draw_summary(Draw& d) {
     d.card(l.card_a);
     d.header(l.card_a, L"For grown-ups", L"How practice is going, on one screen. Nothing here is a grade.");
     d.icon_button(Control::SummaryBack, l.summary_back, L'\xE72B', L"Back to badges", true, false);
+    d.icon_button(Control::ChangeName, l.summary_name, L'\xE77B', p.name.empty() ? std::wstring(L"Add a name") : L"Change name", true, false);
 
     // ---- the four numbers
     const std::size_t rank = rank_index(p.xp);
@@ -1891,6 +1894,7 @@ void draw_lesson(Draw& d) {
              m.lesson_ran && chk.passed ? next : std::wstring(m.fixing ? L"Fix the bug to go on" : L"Pass the task to go on"), m.lesson_ran && chk.passed, true);
     if (const int ex = lesson_practice(m); ex >= 0)
         d.button(Control::LessonPractice, l.lesson_practice, L"Break it in " + widen(examples()[static_cast<std::size_t>(ex)].title), true, false);
+    if (!buddy_visible(m.buddy)) draw_buddy_summon(d.rt, d.R, pal, l, d.hot(Control::BuddySummon), static_cast<float>(GetTickCount64() % 100000) / 1000.0f);
 }
 
 // ---- a quick quiz card
@@ -2007,6 +2011,32 @@ void draw_quest_done(Draw& d) {
 }
 
 // ---- setup: what this computer needs before programs can be built
+// ---- the first start: Bit says hello and asks for a first name
+void draw_name(Draw& d) {
+    const Palette& pal = d.pal;
+    const Model& m = d.m;
+    const Layout& l = d.l;
+    const Rect& n = l.name_card;
+    d.card(n);
+    // a soft spotlight behind Bit, then Bit itself
+    d.circle(Rect{n.x + n.w / 2 - 70, n.y + 30, 140, 140}, alpha(pal.accent, pal.dark ? 0.12f : 0.07f));
+    draw_buddy(d.rt, d.R, pal, m.greeter, l, -1, false, false);
+    const std::wstring hi = m.progress.name.empty() ? L"Hi! I'm Bit, your coding buddy." : L"Hi again, " + widen(m.progress.name) + L"!";
+    d.text(hi, Rect{n.x + 32, n.y + 176, n.w - 64, 34}, 1, 24, kSemibold, pal.text, DWRITE_TEXT_ALIGNMENT_CENTER);
+    d.text(L"What's your first name? I'll say it when I talk to you.", Rect{n.x + 32, n.y + 212, n.w - 64, 24}, 0, 15, kNormal, pal.text2,
+           DWRITE_TEXT_ALIGNMENT_CENTER);
+    const Rect& box = l.name_box;
+    d.fill(box, 8, pal.field);
+    d.stroke(box, 8, pal.card_stroke);
+    d.fill(Rect{box.x + 1, box.bottom() - 2, box.w - 2, 2}, 1, pal.accent);
+    if (!m.native_editor) d.text(widen(m.name_typed), Rect{box.x + 14, box.y, box.w - 28, box.h}, 0, 22, kSemibold, pal.text);
+    const std::string name = clean_name(m.name_typed);
+    const std::wstring said = name.empty() ? std::wstring(L"Just your first name is fine.") : L"I'll call you " + widen(name) + L".";
+    d.text(said, Rect{box.x, box.bottom() + 8, box.w, 22}, 0, 14, name.empty() ? kNormal : kSemibold, name.empty() ? pal.text3 : pal.accent,
+           DWRITE_TEXT_ALIGNMENT_CENTER);
+    d.button(Control::NameDone, l.name_done, name.empty() ? std::wstring(L"Type your name to go on") : L"That's me!  →", !name.empty(), true);
+}
+
 void draw_setup(Draw& d) {
     const Palette& pal = d.pal;
     const Model& m = d.m;
@@ -2139,6 +2169,7 @@ HRESULT Renderer::paint(ID2D1RenderTarget* rt, const Model& model, const Layout&
         case Page::Quiz: draw_quiz(d); break;
         case Page::QuestDone: draw_quest_done(d); break;
         case Page::Setup: draw_setup(d); break;
+        case Page::Name: draw_name(d); break;
         }
     });
     draw_quest_bar(d);
@@ -2147,6 +2178,8 @@ HRESULT Renderer::paint(ID2D1RenderTarget* rt, const Model& model, const Layout&
     if (model.page == Page::Break) draw_confetti(d, layout.banner.x + 34, layout.banner.y + 32, model.confetti);
     else if (model.confetti >= 0) draw_confetti(d, layout.toast.x + 36, layout.toast.y + 34, model.confetti);
     draw_cheer(d);
+    // Bit is drawn on its own see-through window over the real one; a screenshot has no such window, so it is drawn here
+    if (!model.native_editor && model.page == Page::Lesson) draw_buddy(rt, *this, pal, model.buddy, layout, -1, false, false);
     return rt->EndDraw();
 }
 

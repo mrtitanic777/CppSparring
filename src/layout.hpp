@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "buddy.hpp"
 #include "compile.hpp"
 #include "lessons.hpp"
 
@@ -29,7 +30,7 @@ constexpr float kLookRowHeight = 108.0f;
 
 // The places (Home, Practice, Lessons, Badges) and what opens from them: a program's Look and Break steps, one lesson, and the
 // quest's own pages. The rail only ever lists places.
-enum class Page { Home, Practice, Look, Break, Badges, Lessons, Lesson, Quiz, QuestDone, Setup, Summary };
+enum class Page { Home, Practice, Look, Break, Badges, Lessons, Lesson, Quiz, QuestDone, Setup, Summary, Name };
 
 enum class Control {
     None, CaptionMinimize, CaptionMaximize, CaptionClose, SoundToggle,
@@ -45,7 +46,9 @@ enum class Control {
     QuizAnswer, QuizNext,
     ChestOpen, QuestHome, QuestAgain,
     SetupRecheck, SetupInstaller, SetupContinue,
-    Grownups, SummaryBack
+    Grownups, SummaryBack,
+    BuddySummon, BuddyBody, BuddyChip, BuddyMic, BuddyClose,
+    NameDone, ChangeName
 };
 
 // Whether this computer can build programs (checked when CppSparring starts).
@@ -138,6 +141,7 @@ struct Progress {
     int quests_done = 0;
     int bosses_beaten = 0;
     bool sound = true;                        // the sounds are on (the title bar's speaker button)
+    std::string name;                         // the learner's first name, asked on the first start (Bit says it)
 };
 
 // Something to cheer about: a badge, or a level that just opened.
@@ -252,6 +256,12 @@ struct Model {
         return lesson >= 0 && lesson < static_cast<int>(lessons().size()) ? &lessons()[static_cast<std::size_t>(lesson)] : nullptr;
     }
 
+    // Bit, the lesson buddy (it is drawn on a see-through window over this one, so it can point into the code editor)
+    Buddy buddy;
+    float mouse_x = 0, mouse_y = 0;   // where the pointer is (Bit's eyes follow it)
+    std::string name_typed;           // what is in the name box (the Name page)
+    Buddy greeter;                    // Bit saying hello on the Name page
+
     // a quiz card
     int quiz = -1;
     int quiz_choice = -1;            // the shown position picked, -1 before answering
@@ -325,7 +335,10 @@ struct Layout {
     Rect badges_grownups;   // opens the grown-ups' summary
 
     // Summary (for grown-ups): the stats row above, then the week, what was done and the kinds of bug
-    Rect summary_back, summary_week, summary_done, summary_tip, summary_kinds;
+    Rect summary_back, summary_week, summary_done, summary_tip, summary_kinds, summary_name;
+
+    // Name: "What's your first name?" (the first start, or Change name from the summary)
+    Rect name_card, name_box, name_done;
 
     // Lessons: the list, with a heading per course
     Rect lessons_area;

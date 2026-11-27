@@ -32,6 +32,8 @@
 #include "render.hpp"
 #include "replay.hpp"
 #include "sound.hpp"
+#include "speech.hpp"
+#include "teacher.hpp"
 #include "window.hpp"
 
 namespace sparring {
@@ -59,6 +61,10 @@ constexpr UINT kWmToolsDone = WM_APP + 6;   // the check for Visual Studio and C
 constexpr UINT kWmFixDone = WM_APP + 7;     // a Fix it puzzle is ready
 constexpr float kCheerSeconds = 3.3f;
 constexpr int kEditorId = 100;
+constexpr UINT kWmVoice = WM_APP + 20;        // a line from Bit's voice helper (Kokoro)
+constexpr UINT kWmWindowsVoice = WM_APP + 21; // events from Windows' voice
+constexpr UINT kWmEar = WM_APP + 22;          // the speech recognizer heard something
+constexpr float kListenSeconds = 7.0f;
 
 COLORREF rgb(std::uint32_t c) { return RGB((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF); }
 
@@ -69,6 +75,17 @@ std::wstring crlf(const std::string& s) {
         else if (c != L'\r') out += c;
     }
     return out;
+}
+
+// The name box: Enter is "That's me!"
+LRESULT CALLBACK name_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR ref) {
+    if (msg == WM_KEYDOWN && wp == VK_RETURN) {
+        PostMessageW(reinterpret_cast<HWND>(ref), WM_KEYDOWN, VK_RETURN, 0);
+        return 0;
+    }
+    if (msg == WM_CHAR && (wp == L'\r' || wp == L'\n')) return 0;
+    if (msg == WM_NCDESTROY) RemoveWindowSubclass(h, name_proc, 2);
+    return DefSubclassProc(h, msg, wp, lp);
 }
 
 // The lesson editor: Tab types four spaces, Enter keeps the indent (and adds one after a {), F5 runs, Ctrl+A selects all.
@@ -84,8 +101,8 @@ LRESULT CALLBACK editor_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR, D
             PostMessageW(owner, kWmRunLesson, 0, 0);
             return 0;
         }
-        if (wp == VK_ESCAPE) {   // Esc leaves the lesson, as everywhere else
-            PostMessageW(owner, WM_KEYDOWN, VK_ESCAPE, 0);
+        if (wp == VK_ESCAPE || wp == VK_F1) {   // Esc leaves the lesson, as everywhere else; F1 calls Bit
+            PostMessageW(owner, WM_KEYDOWN, wp, 0);
             return 0;
         }
         if (wp == 'A' && (GetKeyState(VK_CONTROL) & 0x8000)) {
@@ -291,6 +308,9 @@ struct App {
     // ---- the lesson editor (a real edit box over the drawing)
     HWND editor = nullptr;
     HWND input_edit = nullptr;   // the typed answers
+    HWND name_edit = nullptr;    // "What's your first name?"
+    HFONT name_font = nullptr;
+    Page name_back = Page::Home; // where That's me! goes
     HFONT editor_font = nullptr;
     HBRUSH editor_brush = nullptr;
     COLORREF editor_fg = 0, editor_bg = 0;
@@ -304,6 +324,12 @@ struct App {
         SendMessageW(editor, EM_SETLIMITTEXT, 0, 0);
         input_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_WANTRETURN, 0, 0, 10, 10, hwnd,
                                      reinterpret_cast<HMENU>(static_cast<INT_PTR>(kEditorId + 1)), GetModuleHandleW(nullptr), nullptr);
+        name_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | ES_AUTOHSCROLL, 0, 0, 10, 10, hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kEditorId + 2)),
+                                    GetModuleHandleW(nullptr), nullptr);
+        if (name_edit) {
+            SetWindowSubclass(name_edit, name_proc, 2, reinterpret_cast<DWORD_PTR>(hwnd));
+            SendMessageW(name_edit, EM_SETLIMITTEXT, 40, 0);
+        }
         model.native_editor = true;
         style_editor();
     }
@@ -333,6 +359,13 @@ struct App {
             SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(editor_font), TRUE);
             SendMessageW(h, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(margin, margin));
         }
+        if (name_edit) {
+            if (name_font) DeleteObject(name_font);
+            name_font = CreateFontW(-MulDiv(22, static_cast<int>(dpi), 96), 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                                    CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI Variable Text");
+            SendMessageW(name_edit, WM_SETFONT, reinterpret_cast<WPARAM>(name_font), TRUE);
+            SendMessageW(name_edit, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM(margin, margin));
+        }
         if (input_edit) InvalidateRect(input_edit, nullptr, TRUE);
         editor_bg = rgb(pal.dark ? 0x1F1F1F : 0xFAFAFA);
         editor_fg = rgb(pal.dark ? 0xE8E8E8 : 0x1B1B1B);
@@ -349,6 +382,14 @@ struct App {
             SetWindowPos(input_edit, nullptr, px(r.x + 2), px(r.y + 6), px(r.w - 4), px(r.h - 10), SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
         } else if (input_edit) {
             ShowWindow(input_edit, SW_HIDE);
+        }
+        if (name_edit) {
+            if (model.page == Page::Name) {
+                const Rect& r = layout.name_box;
+                SetWindowPos(name_edit, nullptr, px(r.x + 2), px(r.y + 11), px(r.w - 4), px(r.h - 20), SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+            } else {
+                ShowWindow(name_edit, SW_HIDE);
+            }
         }
         if (model.page != Page::Lesson || !model.shown_lesson()) {
             ShowWindow(editor, SW_HIDE);
@@ -390,6 +431,7 @@ struct App {
         relayout();
         if (editor) SetFocus(editor);
         start_page_anim();
+        if (buddy_visible(model.buddy)) buddy_tell(intro(opened, model.progress.name), BuddyMood::Happy);   // Bit stays, and reads the new task
     }
     void run_lesson() {
         if (model.page != Page::Lesson || !model.shown_lesson() || model.lesson_running) return;
@@ -604,8 +646,21 @@ struct App {
             model.quest.time_left -= dt;
             if (model.quest.time_left <= 0) skip_step();   // time's up: no penalty, just on to the next one
         }
-        if (model.page_anim >= 1 && model.result_anim >= 1 && model.hover_anim >= 1 && model.step_anim >= 1 && model.confetti < 0 &&
-            model.cheer_t < 0 && !clock) {
+        buddy_frame(dt);
+        if (model.page == Page::Name) {
+            place_greeter();
+            voice.tick(dt);
+            model.greeter.mouth = voice.mouth();
+            POINT cur{};
+            GetCursorPos(&cur);
+            ScreenToClient(hwnd, &cur);
+            model.greeter.look_x = dip(cur.x);
+            model.greeter.look_y = dip(cur.y);
+            buddy_update(model.greeter, dt, layout);
+            if (model.greeter.wave < 0 && model.greeter.clock > 3 && std::fmod(model.greeter.clock, 7.0f) < dt) buddy_wave(model.greeter);
+        }
+        if (model.page != Page::Name &&model.page_anim >= 1 && model.result_anim >= 1 && model.hover_anim >= 1 && model.step_anim >= 1 && model.confetti < 0 &&
+            model.cheer_t < 0 && !clock && !buddy_visible(model.buddy)) {
             KillTimer(hwnd, kAnimTimer);
             animating = false;
         }
@@ -630,6 +685,261 @@ struct App {
         style_editor();
     }
 
+    // ---- Bit, the lesson buddy
+    BuddyOverlay overlay;
+    Voice voice;
+    Ear ear;
+    bool quiet = false;          // the self-test: no voice and no microphone
+    bool voice_started = false, ear_tried = false;
+    float listen_left = 0;       // seconds the microphone stays open
+
+    std::string shown_code() { return model.fixing || model.lesson >= 0 ? editor_text() : std::string(); }
+
+    // The line the typing cursor is on (1-based).
+    int caret_line() const {
+        if (!editor) return 1;
+        DWORD start = 0;
+        SendMessageW(editor, EM_GETSEL, reinterpret_cast<WPARAM>(&start), 0);
+        return static_cast<int>(SendMessageW(editor, EM_LINEFROMCHAR, start, 0)) + 1;
+    }
+
+    // Lines first..last of the code, on screen in DIPs (scrolled into view when `scroll`). False when they can't be seen.
+    bool line_box(int first, int last, BuddyRect& out, bool scroll) {
+        if (!editor || !(GetWindowLongPtrW(editor, GWL_STYLE) & WS_VISIBLE)) return false;
+        const int count = static_cast<int>(SendMessageW(editor, EM_GETLINECOUNT, 0, 0));
+        first = std::clamp(first, 1, count);
+        last = std::clamp(last, first, count);
+        HDC dc = GetDC(editor);
+        HGDIOBJ old = SelectObject(dc, editor_font);
+        TEXTMETRICW tm{};
+        GetTextMetricsW(dc, &tm);
+        SelectObject(dc, old);
+        ReleaseDC(editor, dc);
+        const int lh = std::max(1, static_cast<int>(tm.tmHeight)), cw = std::max(1, static_cast<int>(tm.tmAveCharWidth));
+        RECT fr{};
+        SendMessageW(editor, EM_GETRECT, 0, reinterpret_cast<LPARAM>(&fr));
+        const int visible = std::max(1, static_cast<int>((fr.bottom - fr.top) / lh));
+        int top = static_cast<int>(SendMessageW(editor, EM_GETFIRSTVISIBLELINE, 0, 0));
+        if (scroll && (first - 1 < top || std::min(last, first + visible - 1) > top + visible)) {
+            SendMessageW(editor, EM_LINESCROLL, 0, std::max(0, first - 2) - top);
+            top = static_cast<int>(SendMessageW(editor, EM_GETFIRSTVISIBLELINE, 0, 0));
+        }
+        if (first - 1 < top || first - 1 >= top + visible) return false;
+        int indent = 1 << 20, longest = 0;
+        for (int i = first; i <= last; ++i) {
+            const int at = static_cast<int>(SendMessageW(editor, EM_LINEINDEX, i - 1, 0));
+            const int len = static_cast<int>(SendMessageW(editor, EM_LINELENGTH, at, 0));
+            wchar_t buf[1024] = {};
+            *reinterpret_cast<WORD*>(buf) = 1023;
+            const int n = static_cast<int>(SendMessageW(editor, EM_GETLINE, i - 1, reinterpret_cast<LPARAM>(buf)));
+            int sp = 0;
+            while (sp < n && buf[sp] == L' ') ++sp;
+            if (sp < n) indent = std::min(indent, sp);
+            longest = std::max(longest, len);
+        }
+        if (indent == (1 << 20)) indent = 0;
+        const LRESULT p = SendMessageW(editor, EM_POSFROMCHAR, SendMessageW(editor, EM_LINEINDEX, first - 1, 0), 0);
+        POINT a{static_cast<short>(LOWORD(p)) + indent * cw, static_cast<short>(HIWORD(p))};
+        const int shown_last = std::min(last, top + visible);
+        POINT b{a.x + std::max(2, longest - indent) * cw, a.y + (shown_last - first + 1) * lh};
+        RECT client{};
+        GetClientRect(editor, &client);
+        b.x = std::min<LONG>(b.x, client.right - 4);
+        b.y = std::min<LONG>(b.y, client.bottom);
+        MapWindowPoints(editor, hwnd, &a, 1);
+        MapWindowPoints(editor, hwnd, &b, 1);
+        out = BuddyRect{dip(a.x), dip(a.y), std::max(8.0f, dip(b.x) - dip(a.x)), dip(b.y) - dip(a.y)};
+        return true;
+    }
+
+    int buddy_hot_chip() const { return model.hot == Control::BuddyChip ? model.hot_index : -1; }
+
+    void buddy_present() {
+        overlay.present(model.page == Page::Lesson && buddy_visible(model.buddy), renderer, pal, model.buddy, layout, dpi, buddy_hot_chip(),
+                        model.hot == Control::BuddyMic, model.hot == Control::BuddyClose);
+    }
+
+    void buddy_frame(float dt) {
+        Buddy& b = model.buddy;
+        if (!buddy_visible(b)) {
+            overlay.hide();
+            return;
+        }
+        voice.tick(dt);
+        b.mouth = voice.mouth();
+        b.thinking = voice.waiting();
+        POINT cur{};
+        GetCursorPos(&cur);
+        ScreenToClient(hwnd, &cur);
+        b.look_x = dip(cur.x);
+        b.look_y = dip(cur.y);
+        if (b.point_t >= 0 && b.point_line > 0) {
+            BuddyRect box;
+            b.target_shown = line_box(b.point_line, b.point_to, box, !b.target_shown);
+            if (b.target_shown) {
+                b.target = box;
+                b.look_x = box.x;
+                b.look_y = box.y + box.h / 2;
+            }
+        }
+        if (ear.listening()) {
+            listen_left -= dt;
+            if (listen_left <= 0) {
+                ear.listen(false);
+                b.listening = false;
+                buddy_say(b, L"I didn't hear anything. Press the mic and try again, or pick a button!");
+            }
+        }
+        buddy_update(b, dt, layout);
+        buddy_present();
+    }
+
+    void buddy_tell(const TeacherSay& t, BuddyMood mood = BuddyMood::Calm) {
+        buddy_mood(model.buddy, mood);
+        buddy_say(model.buddy, widen(t.text), widen(t.code));
+        buddy_point(model.buddy, t.line, t.line_to, layout);
+        voice.muted = !model.progress.sound;
+        voice.say(t.text);
+        kick(true);
+    }
+    void buddy_tell(const std::string& text, BuddyMood mood = BuddyMood::Calm) {
+        TeacherSay t;
+        t.text = text;
+        buddy_tell(t, mood);
+    }
+
+    // ", Sam" (or whatever goes around the name), or `none` when there is no name yet.
+    std::string named(const std::string& before, const std::string& none) const {
+        return model.progress.name.empty() ? none : before + model.progress.name;
+    }
+    // What Bit says about a run that didn't pass, kindly and by name.
+    TeacherSay with_name(TeacherSay t) const {
+        const std::string& n = model.progress.name;
+        if (n.empty() || t.text.empty()) return t;
+        if (t.text.rfind("So close!", 0) == 0) t.text = "So close, " + n + "!" + t.text.substr(9);
+        else if (t.text.rfind("Press Run", 0) != 0 && t.text.rfind("It works!", 0) != 0) t.text = "Don't worry, " + n + ". " + t.text;
+        return t;
+    }
+
+    // "What's your first name?": on the first start, or Change name on the grown-ups' page. Bit waves and says hello.
+    void ask_name(Page back) {
+        name_back = back;
+        model.page = Page::Name;
+        model.name_typed = model.progress.name;
+        if (name_edit) SetWindowTextW(name_edit, widen(model.progress.name).c_str());
+        Buddy& g = model.greeter;
+        g = Buddy{};
+        g.mode = BuddyMode::Here;
+        g.stay = true;
+        g.hop = 1;
+        g.mood = BuddyMood::Happy;
+        g.wave = 0;
+        relayout();
+        place_greeter();
+        if (!voice_started && !quiet) {
+            voice.start(hwnd, kWmVoice, kWmWindowsVoice);
+            voice_started = true;
+        }
+        voice.muted = !model.progress.sound;
+        if (back == Page::Home) voice.say("Hi! I'm Bit, your coding buddy. What's your first name?");
+        if (name_edit) SetFocus(name_edit);
+        start_page_anim();
+        kick(true);
+    }
+    void place_greeter() {
+        Buddy& g = model.greeter;
+        const Rect& n = layout.name_card;
+        g.x = g.to_x = g.from_x = n.x + n.w / 2;
+        g.y = g.to_y = g.from_y = n.y + 150;
+    }
+
+    void summon_buddy() {
+        if (model.page != Page::Lesson || !model.shown_lesson()) return;
+        if (!voice_started && !quiet) {
+            voice.start(hwnd, kWmVoice, kWmWindowsVoice);
+            voice_started = true;
+        }
+        buddy_show(model.buddy, layout);
+        buddy_tell(intro(*model.shown_lesson(), model.progress.name), BuddyMood::Happy);
+    }
+
+    void dismiss_buddy(bool at_once) {
+        if (!buddy_visible(model.buddy)) return;
+        voice.hush();
+        if (ear.listening()) ear.listen(false);
+        if (at_once) {
+            buddy_gone(model.buddy);
+            overlay.hide();
+        } else {
+            buddy_hide(model.buddy);
+            kick(true);
+        }
+    }
+
+    void buddy_answer(const Heard& h) {
+        const Lesson* ls = model.shown_lesson();
+        if (!ls) return;
+        Buddy& b = model.buddy;
+        switch (h.ask) {
+        case Ask::Line: buddy_tell(explain_at(shown_code(), h.line), BuddyMood::Focused); break;
+        case Ask::ThisLine: buddy_tell(explain_at(shown_code(), caret_line()), BuddyMood::Focused); break;
+        case Ask::Word: buddy_tell(word_help(h.word, shown_code()), BuddyMood::Focused); break;
+        case Ask::Hint: buddy_tell(hint_help(*ls, shown_code()), BuddyMood::Focused); break;
+        case Ask::Why: {
+            const bool ran = model.lesson_ran && !model.lesson_running;
+            buddy_tell(with_name(why_help(*ls, model.lesson_check, ran, shown_code())),
+                       !ran ? BuddyMood::Curious : model.lesson_check.passed ? BuddyMood::Happy : BuddyMood::Worried);
+            break;
+        }
+        case Ask::Read:
+            buddy_say(b, L"Listen along! " + widen(ls->task));
+            buddy_point(b, 0, 0, layout);
+            voice.muted = !model.progress.sound;
+            voice.say(read_aloud(*ls));
+            break;
+        case Ask::Run:
+            buddy_tell("Running it! Let's see what happens.");
+            run_lesson();
+            break;
+        case Ask::Hello:
+            buddy_wave(b);
+            buddy_tell("Hi " + (model.progress.name.empty() ? std::string("there") : model.progress.name) + "! Ask me about any line, or pick a button.",
+                       BuddyMood::Happy);
+            break;
+        case Ask::Thanks:
+            buddy_wave(b);
+            buddy_tell("You're welcome" + named(", ", "") + "! You're doing great.", BuddyMood::Happy);
+            break;
+        case Ask::Bye: dismiss_buddy(false); break;
+        case Ask::None: buddy_tell("Which part" + named(", ", "") + "? Try \"what does line 3 do?\", or pick a button.", BuddyMood::Curious); break;
+        }
+    }
+
+    void toggle_listening() {
+        Buddy& b = model.buddy;
+        if (ear.listening()) {
+            ear.listen(false);
+            b.listening = false;
+            buddy_say(b, L"Okay, I stopped listening.");
+            return;
+        }
+        if (!ear_tried && !quiet) {
+            ear_tried = true;
+            ear.start(hwnd, kWmEar, spoken_phrases());
+        }
+        if (!ear.ready()) {
+            buddy_tell("I can't hear on this computer: Windows speech recognition isn't working. You can still press my buttons!");
+            return;
+        }
+        voice.hush();   // (so Bit doesn't hear itself)
+        buddy_point(b, 0, 0, layout);
+        ear.listen(true);
+        b.listening = true;
+        listen_left = kListenSeconds;
+        buddy_say(b, L"I'm listening" + widen(named(", ", "")) + L"! Try \"what does return 0 mean?\", \"what does line 5 do?\" or \"give me a hint\"");
+        kick(true);
+    }
+
     void on_create() {
         dpi = GetDpiForWindow(hwnd);
         BOOL on = TRUE;
@@ -646,6 +956,7 @@ struct App {
         }
         apply_theme();
         make_editor();
+        overlay.create(hwnd, renderer.d2d.Get());
         DragAcceptFiles(hwnd, TRUE);
         SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     }
@@ -691,6 +1002,10 @@ struct App {
             break;
         case Page::Summary:
             if (layout.summary_back.contains(x, y)) return Control::SummaryBack;
+            if (layout.summary_name.contains(x, y)) return Control::ChangeName;
+            break;
+        case Page::Name:
+            if (layout.name_done.contains(x, y) && !clean_name(model.name_typed).empty()) return Control::NameDone;
             break;
         case Page::Setup:
             if (model.tools == Tools::Ready) {
@@ -709,6 +1024,22 @@ struct App {
             }
             break;
         case Page::Lesson:
+            if (model.shown_lesson()) {
+                Renderer& r = const_cast<Renderer&>(renderer);
+                const BuddyLayout bl = buddy_layout(model.buddy, layout, r);
+                if (model.buddy.mode == BuddyMode::Here || model.buddy.mode == BuddyMode::Entering) {
+                    if (bl.close.contains(x, y)) return Control::BuddyClose;
+                    if (bl.mic.contains(x, y)) return Control::BuddyMic;
+                    for (int k = 0; k < kBuddyChips; ++k)
+                        if (bl.chips[static_cast<std::size_t>(k)].contains(x, y)) {
+                            index = k;
+                            return Control::BuddyChip;
+                        }
+                    if (bl.body.contains(x, y)) return Control::BuddyBody;
+                } else if (!buddy_visible(model.buddy) && bl.summon.contains(x, y)) {
+                    return Control::BuddySummon;
+                }
+            }
             if (layout.run_button.contains(x, y)) return Control::LessonRun;
             if (layout.hint_button.contains(x, y)) return Control::LessonHint;
             if (layout.reset_button.contains(x, y)) return Control::LessonReset;
@@ -832,6 +1163,8 @@ struct App {
             if (enter && model.quiz_choice >= 0) return click(Control::QuizNext, -1), true;
             break;
         case Page::Lesson:
+            if (vk == VK_F1 && model.shown_lesson()) return click(buddy_visible(model.buddy) ? Control::BuddyClose : Control::BuddySummon, -1), true;
+            if (esc && buddy_visible(model.buddy)) return click(Control::BuddyClose, -1), true;
             if (esc && !in_quest) return click(Control::SessionBack, -1), true;
             if (enter && model.lesson_ran && model.lesson_check.passed) return click(Control::LessonNext, -1), true;
             break;
@@ -851,6 +1184,10 @@ struct App {
         case Page::Summary:
             if (esc) return click(Control::SummaryBack, -1), true;
             break;
+        case Page::Name:
+            if (enter && !clean_name(model.name_typed).empty()) return click(Control::NameDone, -1), true;
+            if (esc && !model.progress.name.empty() && name_back == Page::Summary) return click(Control::Grownups, -1), true;
+            break;
         }
         return false;
     }
@@ -865,6 +1202,7 @@ struct App {
         const Page was_page = model.page;
         const int was_current = model.current;
         act(c, i);
+        if (model.page != Page::Lesson || !model.shown_lesson()) dismiss_buddy(true);   // Bit only helps with a lesson
         if (model.page != was_page || model.current != was_current) start_page_anim();
         relayout();
         invalidate();
@@ -972,6 +1310,30 @@ struct App {
                 else load_file(write_example(e));
             }
             return;
+        case Control::ChangeName: ask_name(Page::Summary); return;
+        case Control::NameDone: {
+            const std::string name = clean_name(model.name_typed);
+            if (name.empty()) return;
+            model.progress.name = name;
+            save_progress(model.progress);
+            play(Sound::Right);
+            if (voice_started) voice.say("Nice to meet you, " + name + "!");
+            model.page = model.tools == Tools::Missing ? Page::Setup : name_back;
+            return;
+        }
+        case Control::BuddySummon: summon_buddy(); return;
+        case Control::BuddyClose: dismiss_buddy(false); return;
+        case Control::BuddyBody: buddy_answer(Heard{Ask::Hello, 0}); return;
+        case Control::BuddyMic: toggle_listening(); return;
+        case Control::BuddyChip: {
+            if (ear.listening()) {
+                ear.listen(false);
+                model.buddy.listening = false;
+            }
+            static const Ask asks[kBuddyChips] = {Ask::ThisLine, Ask::Hint, Ask::Why, Ask::Read};
+            if (i >= 0 && i < kBuddyChips) buddy_answer(Heard{asks[i], 0});
+            return;
+        }
         case Control::QuizAnswer:
             if (model.quiz_choice < 0 && i >= 0 && model.quiz >= 0) {
                 model.quiz_choice = i;
@@ -1420,9 +1782,45 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
             kick();
         }
         relayout();   // a passed lesson may show its Practice button
+        if (buddy_visible(model.buddy)) {   // Bit says how it went
+            if (passed) {
+                buddy_wave(model.buddy);
+                buddy_tell(model.fixing ? "You fixed it" + named(", ", "") + "! Bug squashed." : "You did it" + named(", ", "") + "! It prints exactly what it should. Great job!",
+                           BuddyMood::Happy);
+            } else {
+                buddy_tell(with_name(why_help(*shown, model.lesson_check, true, model.lesson_code)), BuddyMood::Worried);
+            }
+        }
         invalidate();
         return 0;
     }
+
+    case kWmVoice:
+        voice.on_helper(lp);
+        return 0;
+
+    case kWmWindowsVoice:
+        voice.on_windows();
+        return 0;
+
+    case kWmEar: {
+        std::string heard;
+        if (!ear.on_event(heard) || !buddy_visible(model.buddy)) return 0;
+        ear.listen(false);
+        model.buddy.listening = false;
+        if (heard.empty()) buddy_tell("Hmm, which part? I didn't catch that. Try again, or pick a button.", BuddyMood::Curious);
+        else {
+            buddy_answer(understand(heard));
+            // show what was heard, so a mix-up is easy to spot (and ask again)
+            if (buddy_visible(model.buddy) && !model.buddy.said.empty()) buddy_say(model.buddy, L"I heard: \x201C" + widen(heard) + L"\x201D\n" + model.buddy.said, model.buddy.said_code);
+        }
+        invalidate();
+        return 0;
+    }
+
+    case WM_MOVE:
+        if (buddy_visible(model.buddy)) buddy_present();
+        break;
 
     case kWmRunLesson:
         run_lesson();
@@ -1451,6 +1849,11 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
     }
 
     case WM_COMMAND:
+        if (name_edit && reinterpret_cast<HWND>(lp) == name_edit && HIWORD(wp) == EN_CHANGE) {
+            model.name_typed = edit_text(name_edit);
+            invalidate();
+            return 0;
+        }
         if (input_edit && reinterpret_cast<HWND>(lp) == input_edit && HIWORD(wp) == EN_CHANGE) {
             if (std::string* field = answers()) *field = edit_text(input_edit);
             return 0;
@@ -1545,6 +1948,9 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
         break;
 
     case WM_DESTROY:
+        voice.stop_all();
+        ear.stop_all();
+        overlay.destroy();
         PostQuitMessage(0);
         return 0;
     }
@@ -1643,6 +2049,7 @@ int render_png(const ShotOptions& o) {
              : page == L"setup"     ? Page::Setup
              : page == L"fix"       ? Page::Lesson
              : page == L"summary"   ? Page::Summary
+             : page == L"name"      ? Page::Name
                                     : Page::Home;
     m.tools = Tools::Ready;
     if (m.page == Page::Summary) m.cheers.clear();
@@ -1712,6 +2119,92 @@ int render_png(const ShotOptions& o) {
 
     const UINT w = 1180, h = 760;
     const Layout layout = compute_layout(m, static_cast<float>(w), static_cast<float>(h));
+    if (m.page == Page::Name) {   // meeting Bit, with a name being typed
+        m.name_typed = "  sam";
+        Buddy& g = m.greeter;
+        g.mode = BuddyMode::Here;
+        g.stay = true;
+        g.hop = 1;
+        g.mood = BuddyMood::Happy;
+        g.x = g.to_x = g.from_x = layout.name_card.x + layout.name_card.w / 2;
+        g.y = g.to_y = g.from_y = layout.name_card.y + 150;
+        for (int i = 0; i < 20; ++i) buddy_update(g, 0.05f, layout);
+        g.wave = 0.55f;
+        g.clock = 1.1f;
+        g.blink = -1;
+        g.look_x = g.x;
+        g.look_y = layout.name_box.y;
+    }
+    // Bit on a lesson: 1 says hello, 2 points at the hint's line, 3 explains a block, 4 listens
+    if (o.buddy > 0 && m.page == Page::Lesson && m.shown_lesson()) {
+        Buddy& b = m.buddy;
+        const Lesson& ls = *m.shown_lesson();
+        b.mode = BuddyMode::Here;
+        buddy_home(layout, b.x, b.y);
+        b.to_x = b.from_x = b.x;
+        b.to_y = b.from_y = b.y;
+        b.hop = 1;
+        b.clock = 1.1f;
+        b.blink = -1;
+        b.said_t = 1;
+        TeacherSay say = intro(ls);
+        if (o.buddy == 2) say = hint_help(ls, m.lesson_code);
+        if (o.buddy == 3) say = explain_at(m.lesson_code, first_block_line(m.lesson_code));
+        if (o.buddy == 5) {
+            say.text = "Which part? Try \"what does line 3 do?\", or pick a button.";
+            b.mood = BuddyMood::Curious;
+        }
+        if (o.buddy == 6) {
+            say = why_help(ls, check_lesson(ls, m.lesson_code), true, m.lesson_code);
+            b.mood = BuddyMood::Worried;
+        }
+        if (o.buddy == 1) b.mood = BuddyMood::Happy;
+        if (o.buddy == 2 || o.buddy == 3) b.mood = BuddyMood::Focused;
+        if (o.buddy == 4) {
+            b.listening = true;
+            say.text = "I'm listening! Try \"what does return 0 mean?\", \"what does line 5 do?\" or \"give me a hint\"";
+        }
+        b.said = widen(say.text);
+        b.said_code = widen(say.code);
+        for (int i = 0; i < 40; ++i) buddy_update(b, 0.05f, layout);   // the brows settle into the mood
+        b.clock = 1.1f;
+        b.blink = -1;
+        b.brow_flick = -1;
+        if (say.line > 0) {
+            Renderer measure;
+            measure.init();
+            const float cw = measure.measure(L"0000000000", 3, 13, DWRITE_FONT_WEIGHT_NORMAL) / 10.0f;
+            const std::vector<std::string> lines = [&] {
+                std::vector<std::string> v;
+                std::stringstream ss(m.lesson_code);
+                std::string s;
+                while (std::getline(ss, s)) v.push_back(s);
+                return v;
+            }();
+            int indent = 99, longest = 0;
+            for (int i = say.line; i <= say.line_to && i <= static_cast<int>(lines.size()); ++i) {
+                const std::string& s = lines[static_cast<std::size_t>(i - 1)];
+                const std::size_t sp = s.find_first_not_of(' ');
+                if (sp != std::string::npos) indent = std::min(indent, static_cast<int>(sp));
+                longest = std::max(longest, static_cast<int>(s.size()));
+            }
+            if (indent == 99) indent = 0;
+            const Rect& ed = layout.editor;
+            b.point_line = say.line;
+            b.point_to = say.line_to;
+            b.point_t = 1.5f;
+            b.target_shown = true;
+            b.target = BuddyRect{ed.x + 12 + static_cast<float>(indent) * cw, ed.y + 10 + static_cast<float>(say.line - 1) * 19,
+                                 std::max(2, longest - indent) * cw, static_cast<float>(say.line_to - say.line + 1) * 19};
+            b.x = b.to_x = b.from_x = layout.card_a.right() - 4;
+            b.y = b.to_y = b.from_y = std::clamp(b.target.y + b.target.h / 2 + 44, layout.card_a.y + 120, layout.card_a.bottom() - 12);
+            b.look_x = b.target.x;
+            b.look_y = b.target.y;
+        } else {
+            b.look_x = layout.card_b.x + 200;
+            b.look_y = layout.card_b.y + 200;
+        }
+    }
     ComPtr<IWICImagingFactory> wic;
     ComPtr<IWICBitmap> bitmap;
     ComPtr<ID2D1RenderTarget> rt;
@@ -1867,6 +2360,7 @@ int self_test(const std::wstring& log_path) {
     RegisterClassExW(&wc);
     auto app = std::make_unique<App>();
     app->renderer.init();
+    app->quiet = true;   // Bit doesn't talk or listen in a test
     // never shown: the test runs the real window's code without putting anything on the screen
     HWND hwnd = CreateWindowExW(0, kClassName, L"CppSparring self-test", WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPCHILDREN, 0, 0, 1200, 800,
                                 nullptr, nullptr, wc.hInstance, app.get());
@@ -2141,6 +2635,106 @@ int self_test(const std::wstring& log_path) {
         pump([&] { return !m.importing; }, 90000);
     }
 
+    // ---- Bit, the lesson buddy: what it understands and says (worked out from the code, the same every time)
+    {
+        const Heard five = understand("What does line five do?"), twenty_one = understand("line twenty one"), digits = understand("explain line 12");
+        check("Bit understands \"what does line five do\" and \"line twenty one\"",
+              five.ask == Ask::Line && five.line == 5 && twenty_one.line == 21 && digits.ask == Ask::Line && digits.line == 12);
+        check("Bit understands asking for a hint, what went wrong, and reading it out",
+              understand("give me a hint").ask == Ask::Hint && understand("why didn't it work").ask == Ask::Why &&
+                  understand("read it to me").ask == Ask::Read && understand("what does this line do").ask == Ask::ThisLine);
+        bool all = true;
+        for (const std::string& p : spoken_phrases()) all = all && understand(p).ask != Ask::None;
+        check("every phrase the speech recognizer listens for means something", all && spoken_phrases().size() > 400);
+
+        const std::string loop = "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> scores{3, 7, 5};\n    int total = 0;\n"
+                                 "    for (int s : scores) {\n        total += s;\n    }\n    if (total = 15) {\n        std::cout << \"Total: \" << total << \"\\n\";\n"
+                                 "    }\n    return 0;\n}\n";
+        check("Bit explains a printing line", explain_line(loop, 11).find("prints the words \"Total: \", and then what's in the box total, then moves to a new line") !=
+                                                  std::string::npos);
+        check("Bit explains a box", explain_line(loop, 6) == "This makes a box called total that holds a whole number, and puts 0 in it.");
+        check("Bit explains going through a list, and lights up the whole loop",
+              explain_line(loop, 7).find("goes through the list scores") != std::string::npos && explain_at(loop, 7).line_to == 9);
+        check("Bit spots = in a question", explain_line(loop, 10).find("Careful: one = puts a value in a box") != std::string::npos);
+        check("Bit says which line a } closes", explain_line(loop, 9).find("closes the loop that started on line 7") != std::string::npos);
+        check("Bit explains main and return 0", explain_line(loop, 4).find("where the program starts") != std::string::npos &&
+                                                    explain_line(loop, 13).find("everything went fine") != std::string::npos);
+
+        auto find_lesson = [](const char* id) {
+            return &*std::find_if(lessons().begin(), lessons().end(), [&](const Lesson& l) { return l.id == id; });
+        };
+        const Lesson& sum = *find_lesson("cpp14_loop_over_list");
+        const TeacherSay hint = hint_help(sum, sum.starter);
+        check("Bit's hint points at where the code goes", hint.line == 8 && hint.code == "total += s;");
+        const Lesson& hello = *find_lesson("cpp01_hello");
+        const std::string no_semicolon = "#include <iostream>\n\nint main() {\n    std::cout << \"Hello, C++!\\n\"\n    return 0;\n}\n";
+        const LessonCheck broken = check_lesson(hello, no_semicolon);
+        const TeacherSay semi = why_help(hello, broken, true, no_semicolon);
+        check("Bit points at the line missing its ;", !broken.run.compiled && semi.line == 4 && semi.text.find("semicolon") != std::string::npos);
+        const Lesson& eq = *find_lesson("cpp23_equals");
+        const LessonCheck wrong = check_lesson(eq, eq.starter);
+        const TeacherSay why = why_help(eq, wrong, true, eq.starter);
+        check("Bit says what it printed and what it should, at the printing line",
+              why.text.find("printed \"You got it!\", but it should print \"Not this time!\"") != std::string::npos && why.line == 6);
+        check("spoken words say code signs out loud", spoken("Use == not =, then std::cout.") == "Use double equals not =, then see-out.");
+
+        check("a first name is found in what was typed",
+              clean_name("  sam") == "Sam" && clean_name("my name is SAM smith") == "Sam" && clean_name("I'm Mary-Jane!") == "Mary-Jane" &&
+                  clean_name("McKenzie") == "McKenzie" && clean_name("  123 ") == "" && clean_name("call me zoe") == "Zoe");
+        const Heard ret0 = understand("what does return zero mean"), typed = understand("What does return 0 mean?"), out = understand("what is see out");
+        check("Bit understands questions about code words (\"what does return 0 mean?\")",
+              ret0.ask == Ask::Word && ret0.word == "return 0" && typed.word == "return 0" && out.ask == Ask::Word && out.word == "cout" &&
+                  understand("what does the semicolon do").word == ";" && understand("what is a for loop").word == "for" &&
+                  understand("what is wrong").ask == Ask::Why);
+        const TeacherSay r0 = word_help("return 0", loop);
+        check("Bit explains return 0 and points at it", r0.line == 13 && r0.text.find("ends the program") != std::string::npos);
+        check("Bit says hello by name", intro(sum, "Sam").text.rfind("Hi Sam, I'm Bit!", 0) == 0);
+
+        // the name page: on the first start, and Change name from the grown-ups' page
+        m.progress.name.clear();
+        a.ask_name(Page::Home);
+        check("the name page asks for a first name, with Bit waving", m.page == Page::Name && shown(a.name_edit) && m.greeter.wave >= 0 &&
+                                                                         [&] { int k = -1; return a.hit(a.layout.name_done.x + 5, a.layout.name_done.y + 5, k); }() == Control::None);
+        SetWindowTextW(a.name_edit, L"my name is sam smith");
+        pump([] { return false; }, 30);
+        check("what's typed is tidied into a first name", m.name_typed == "my name is sam smith" && clean_name(m.name_typed) == "Sam");
+        press(VK_RETURN);
+        check("Enter keeps the name, saves it and goes on", m.page == Page::Home && m.progress.name == "Sam" && load_progress().name == "Sam" && !shown(a.name_edit));
+        click(Control::NavBadges);
+        click(Control::Grownups);
+        click(Control::ChangeName);
+        check("Change name opens the name page with the name in it", m.page == Page::Name && m.name_typed == "Sam");
+        press(VK_ESCAPE);
+        check("Esc goes back to the grown-ups' page", m.page == Page::Summary);
+
+        // in the window
+        a.open_lesson(static_cast<int>(&sum - lessons().data()));
+        check("the lesson page has an Ask Bit button", !buddy_visible(m.buddy) && buddy_layout(m.buddy, a.layout, a.renderer).summon.w > 0);
+        click(Control::BuddySummon);
+        check("Ask Bit brings Bit in, happy, saying hello by name and the task",
+              buddy_visible(m.buddy) && m.buddy.mood == BuddyMood::Happy && m.buddy.said.find(L"Hi Sam, I'm Bit") == 0 && m.buddy.said.find(widen(sum.task)) != std::wstring::npos);
+        check("Bit hops in and lands", pump([&] { return m.buddy.mode == BuddyMode::Here; }, 3000));
+        click(Control::BuddyChip, 1);
+        check("Give me a hint makes Bit point at the line, focused", m.buddy.mood == BuddyMood::Focused && m.buddy.point_line == 8 && m.buddy.said.find(L"line 8") != std::wstring::npos);
+        check("Bit finds that line in the editor and hops over to it",
+              pump([&] { return m.buddy.target_shown && m.buddy.target.w > 0 && m.buddy.hop >= 1 && m.buddy.x > a.layout.card_a.right() - 20; }, 3000));
+        SendMessageW(a.editor, EM_SETSEL, 0, 0);
+        click(Control::BuddyChip, 0);
+        check("Explain this line explains the line the cursor is on", m.buddy.said.find(L"Line 1. This brings in iostream") == 0);
+        a.set_editor_text(sum.starter);
+        click(Control::LessonRun);
+        check("after a run that didn't pass, Bit says why on its own",
+              pump([&] { return !m.lesson_running && m.lesson_ran; }, 90000) && m.buddy.said.find(L"So close, Sam!") == 0 && m.buddy.mood == BuddyMood::Worried);
+        check("Bit's brows ease into a worried shape (inner ends up)", pump([&] { return m.buddy.brow_tilt[0] < -12 && m.buddy.brow_tilt[1] > 12; }, 2000));
+        press(VK_ESCAPE);
+        check("Esc sends Bit away and stays on the lesson", m.page == Page::Lesson && m.buddy.mode == BuddyMode::Leaving);
+        check("Bit plops out", pump([&] { return !buddy_visible(m.buddy); }, 3000));
+        press(VK_F1);
+        check("F1 calls Bit back", buddy_visible(m.buddy));
+        click(Control::SessionBack);
+        check("leaving the lesson sends Bit away at once", m.page != Page::Lesson && !buddy_visible(m.buddy));
+    }
+
     // ---- the other places
     click(Control::NavLearn);
     check("Lessons lists every lesson", m.page == Page::Lessons && a.layout.lesson_tiles.size() == lessons().size() && lessons().size() >= 57);
@@ -2204,6 +2798,7 @@ int run_window(const std::wstring& file) {
     if (!hwnd) return 1;
     app->model.progress = load_progress();
     set_sound_on(app->model.progress.sound);
+    if (app->model.progress.name.empty()) app->ask_name(Page::Home);   // the first start: meet Bit
     app->model.pick_level = highest_open_level(app->model.progress);
     app->start_tool_check();
     app->relayout();

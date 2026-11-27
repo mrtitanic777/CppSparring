@@ -38,6 +38,12 @@ add_executable(cppsparring WIN32
     src/quiz.hpp
     src/quest.cpp
     src/quest.hpp
+    src/buddy.cpp
+    src/buddy.hpp
+    src/speech.cpp
+    src/speech.hpp
+    src/teacher.cpp
+    src/teacher.hpp
     src/sound.cpp
     src/sound.hpp
     src/app.rc
@@ -45,7 +51,8 @@ add_executable(cppsparring WIN32
 
 # the lessons (from CodingTeacher's LearnC) sit next to the program, so they can be edited without rebuilding
 add_custom_command(TARGET cppsparring POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/lessons $<TARGET_FILE_DIR:cppsparring>/lessons)
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/lessons $<TARGET_FILE_DIR:cppsparring>/lessons
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/tools/voice.py $<TARGET_FILE_DIR:cppsparring>/voice.py)
 
 target_include_directories(cppsparring PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_compile_definitions(cppsparring PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
@@ -63,4 +70,5 @@ target_link_libraries(cppsparring PRIVATE
     shlwapi
     comctl32
     winmm
+    sapi
 )

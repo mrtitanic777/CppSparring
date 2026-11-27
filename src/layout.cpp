@@ -191,6 +191,7 @@ Layout compute_layout(const Model& m, float width, float height) {
     case Page::Summary: {
         l.card_a = c;
         l.summary_back = {c.right() - 24 - 160, c.y + 26, 160, 36};
+        l.summary_name = {l.summary_back.x - 12 - 160, c.y + 26, 160, 36};
         const float sw = std::max(0.0f, (c.w - 48 - 3 * 12) / 4);
         for (int i = 0; i < 4; ++i) l.stats[static_cast<std::size_t>(i)] = {c.x + 24 + static_cast<float>(i) * (sw + 12), c.y + 88, sw, 76};
         const float y = c.y + 88 + 76 + 20;
@@ -288,6 +289,15 @@ Layout compute_layout(const Model& m, float width, float height) {
             l.quiz_answers[static_cast<std::size_t>(i)] = {q.x + 32 + static_cast<float>(i % 2) * (aw + 12), y + static_cast<float>(i / 2) * 76, aw, 64};
         l.quiz_why = {q.x + 32, y + 2 * 76 + 8, q.w - 64, 64};
         l.quiz_next = {q.x + 32, q.bottom() - 64, q.w - 64, 44};
+        break;
+    }
+
+    case Page::Name: {
+        l.name_card = centered(std::min(640.0f, c.w), std::min(470.0f, c.h));
+        l.name_card.y = c.y + std::max(0.0f, (c.h - l.name_card.h) / 2);
+        const Rect& n = l.name_card;
+        l.name_box = {n.x + 48, n.y + 262, n.w - 96, 52};
+        l.name_done = {n.x + 48, n.bottom() - 76, n.w - 96, 48};
         break;
     }
 

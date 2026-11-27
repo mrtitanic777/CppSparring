@@ -27,6 +27,16 @@ really compiling and running the code.
 - **Lessons**: 24 C++ lessons (up to vectors, strings and rock-paper-scissors) and 39 C lessons where you write the code yourself and the compiler checks what it prints. The C
   lessons come from [CodingTeacher](https://github.com/mrtitanic777/CodingTeacher). The last six, **Bugs to watch for**, each fix one kind of bug (a box with no first
   value, `7 / 2` being `3`, going past the end of a list, `<` or `<=`, `=` or `==`, a dropped answer); once passed, a button opens a Practice program to break the same way.
+- **Bit, the lesson buddy**: press **Ask Bit** (or F1) on any lesson and a little robot hops in. It explains the line your cursor is on,
+  gives the hint while pointing at the line it's about, says what went wrong after a run (the missing `;`, the line that printed the wrong
+  thing, the `if` that chose the wrong way), and reads the lesson out loud. It draws an arrow to the line and a glowing box around the
+  code it means, and its eyebrows show how it feels: happy, focused while it points, worried when a run fails, curious ("which part?"),
+  and surprised while it listens. On the first start Bit asks for your first name (the grown-ups' page can change it) and uses it
+  when it talks: "So close, Sam!" Press the mic and ask out loud: "what does line 5 do?", "give me a hint", "what went wrong?". What Bit says is worked out
+  from the code itself, never made up, so the same code always gets the same answer. It speaks with
+  [Kokoro](https://github.com/thewh1teagle/kokoro-onnx) when that's set up (Python with `kokoro-onnx`, and its model files in
+  `%LOCALAPPDATA%\CppSparring\speech\kokoro`; CodeMonkey's speech folder is used too), else with Windows' own voices. Listening uses
+  Windows' speech recognizer, on this computer, and the microphone is only open while the mic button is lit.
 - **Eleven kinds of bug**, the ones beginners really hit: off by one, reading past the end of a list, a box with no first value,
   whole numbers vs decimals (`7 / 2` is `3`), math signs, `=` vs `==`, a lost line, `&` and copies, a missing `return`, `const`, and the
   leftover Enter key. Programs are built so these act the same way every time: a box with no first value always holds
@@ -46,6 +56,8 @@ penalty for skipping, and nothing to wander off to in the middle of a quest.
 | ![A lesson](docs/lesson.png) | ![Bug Boss](docs/boss.png) |
 | **Fix it** | **For grown-ups** |
 | ![Fix it](docs/fix.png) | ![For grown-ups](docs/summary.png) |
+| **Bit, the lesson buddy** | |
+| ![Bit pointing at a line](docs/buddy.png) | |
 
 ## Building
 
@@ -104,8 +116,8 @@ each lesson's worked solution into `check` so it can be compiled and compared wi
 
 - `cppsparring --selftest LOG` drives the real window, never shown, through a quest, a lesson, a Fix it puzzle, a Bug Boss, typed
   answers and the replay, and writes what passed and failed to `LOG`. It uses a throwaway progress file.
-- `cppsparring --screenshot OUT.png --page home|practice|look|break|fix|lessons|lesson|quiz|questdone|badges|summary|setup [--file X.cpp|example:N]
-  [--guess 0-3] [--replay STEP] [--lesson N] [--run] [--code FILE] [--dark]` draws the window into a PNG without showing it.
+- `cppsparring --screenshot OUT.png --page home|practice|look|break|fix|lessons|lesson|quiz|questdone|badges|summary|setup|name [--file X.cpp|example:N]
+  [--guess 0-3] [--replay STEP] [--lesson N] [--run] [--code FILE] [--buddy 1-6] [--dark]` draws the window into a PNG without showing it.
 - `cppsparring --make-icon OUT.ico` redraws the app icon.
 
 ## License
